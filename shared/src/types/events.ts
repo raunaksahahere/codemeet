@@ -164,6 +164,33 @@ export interface NoteTypingPayload {
   isTyping: boolean;
 }
 
+// ── CRDT sync events ──
+
+/** Carries a Yjs document update (binary encoded as number array for JSON transport). */
+export interface YjsUpdatePayload {
+  roomId: string;
+  /** Relative file path this update belongs to. */
+  file: string;
+  /** Yjs update encoded as a number array (Uint8Array serialized). */
+  update: number[];
+}
+
+/** Request a full Yjs document state from the host for initial sync. */
+export interface YjsSyncRequestPayload {
+  roomId: string;
+  file: string;
+  requesterId: string;
+}
+
+/** Response with full Yjs document state for initial sync. */
+export interface YjsSyncResponsePayload {
+  roomId: string;
+  file: string;
+  /** Full Yjs state vector encoded as number array. */
+  state: number[];
+  targetId: string;
+}
+
 // ── Aggregate event maps for type-safe Socket.IO ──
 
 export interface ClientToServerEvents {
@@ -180,6 +207,9 @@ export interface ClientToServerEvents {
   'file-activity': (payload: FileActivityPayload) => void;
   'note-update': (payload: NoteUpdatePayload) => void;
   'note-typing': (payload: NoteTypingPayload) => void;
+  'yjs-update': (payload: YjsUpdatePayload) => void;
+  'yjs-sync-request': (payload: YjsSyncRequestPayload) => void;
+  'yjs-sync-response': (payload: YjsSyncResponsePayload) => void;
 }
 
 export interface ServerToClientEvents {
@@ -199,5 +229,8 @@ export interface ServerToClientEvents {
   'file-activity': (payload: FileActivityPayload) => void;
   'note-update': (payload: NoteUpdatePayload) => void;
   'note-typing': (payload: NoteTypingPayload) => void;
+  'yjs-update': (payload: YjsUpdatePayload) => void;
+  'yjs-sync-request': (payload: YjsSyncRequestPayload) => void;
+  'yjs-sync-response': (payload: YjsSyncResponsePayload) => void;
   error: (payload: ErrorPayload) => void;
 }

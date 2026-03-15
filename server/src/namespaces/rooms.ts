@@ -12,6 +12,9 @@ import type {
   FileActivityPayload,
   NoteUpdatePayload,
   NoteTypingPayload,
+  YjsUpdatePayload,
+  YjsSyncRequestPayload,
+  YjsSyncResponsePayload,
 } from '@codemeet/shared';
 import { RoomStore } from '../store/RoomStore.js';
 import { setDisplayName, getDisplayName, removeDisplayName } from '../store/displayNames.js';
@@ -161,6 +164,34 @@ export function registerRoomsNamespace(io: Server): void {
       const room = roomStore.get(payload.roomId);
       if (room && room.members.includes(socket.id)) {
         socket.to(payload.roomId).emit('note-typing', payload);
+      }
+    });
+
+    // ── Yjs CRDT update relay (broadcast binary doc updates) ──
+    socket.on('yjs-update', (payload: YjsUpdatePayload) => {
+      const room = roomStore.get(payload.roomId);
+      if (room && room.members.includes(socket.id)) {
+        socket.to(payload.roomId).emit('yjs-update', payload);
+      }
+    });
+
+    // ── Yjs sync request (guest asks host for full doc state) ──
+    socket.on('yjs-sync-request', (payload: YjsSyncRequestPayload) => {
+      const room = roomStore.get(payload.roomId);
+      if (room && room.members.includes(socket.id)) {
+        // Forward to host (first member is host)
+        const hostId = room.members[0];
+        if (hostId && hostId !== socket.id) {
+          socket.to(hostId).emit('yjs-sync-request', payload);
+        }
+      }
+    });
+
+    // ── Yjs sync response (host sends full doc state to requester) ──
+    socket.on('yjs-sync-response', (payload: YjsSyncResponsePayload) => {
+      const room = roomStore.get(payload.roomId);
+      if (room && room.members.includes(socket.id)) {
+        socket.to(payload.targetId).emit('yjs-sync-response', payload);
       }
     });
 

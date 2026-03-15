@@ -35,6 +35,9 @@ export type {
   FileActivityPayload,
   NoteUpdatePayload,
   NoteTypingPayload,
+  YjsUpdatePayload,
+  YjsSyncRequestPayload,
+  YjsSyncResponsePayload,
   ClientToServerEvents,
   ServerToClientEvents,
 } from './types/events.js';

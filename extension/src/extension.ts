@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { SidebarProvider } from './sidebar/SidebarProvider';
 import { ConnectionManager } from './services/ConnectionManager';
 import { RoomService } from './services/RoomService';
-import { EditSyncService } from './services/editing/EditSyncService';
+import { YjsEditService } from './services/editing/YjsEditService';
 import { CursorSyncService } from './services/cursor/CursorSyncService';
 import { WorkspaceTreeService } from './services/workspace/WorkspaceTreeService';
 import { FileOpenTracker } from './services/workspace/FileOpenTracker';
@@ -19,7 +19,7 @@ export function activate(context: vscode.ExtensionContext) {
   const roomService = new RoomService(connectionManager);
 
   // Services — created lazily when room is joined
-  let editSync: EditSyncService | null = null;
+  let editSync: YjsEditService | null = null;
   let cursorSync: CursorSyncService | null = null;
   let workspaceTree: WorkspaceTreeService | null = null;
   let fileTracker: FileOpenTracker | null = null;
@@ -53,11 +53,11 @@ export function activate(context: vscode.ExtensionContext) {
         currentUserId = userId;
         currentDisplayName = displayName;
 
-        // Edit sync
+        // Edit sync (CRDT via Yjs)
         if (!editSync) {
-          editSync = new EditSyncService(userId);
+          editSync = new YjsEditService();
         }
-        editSync.start(socket, state.roomId);
+        editSync.start(socket, state.roomId, state.isHost);
 
         // Cursor sync
         if (!cursorSync) {
