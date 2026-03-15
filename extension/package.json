@@ -1,0 +1,58 @@
+{
+  "name": "codemeet",
+  "displayName": "CodeMeet",
+  "description": "Real-time collaborative coding in VS Code over peer-to-peer WebRTC",
+  "version": "0.1.0",
+  "publisher": "raunaksahahere",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "package": "vsce package --no-dependencies",
+    "clean": "rimraf dist"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "codemeet.startRoom",
+        "title": "CodeMeet: Start Room",
+        "icon": "$(broadcast)"
+      },
+      {
+        "command": "codemeet.joinRoom",
+        "title": "CodeMeet: Join Room",
+        "icon": "$(plug)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codemeet-sidebar",
+          "title": "CodeMeet",
+          "icon": "$(comment-discussion)"
+        }
+      ]
+    },
+    "views": {
+      "codemeet-sidebar": [
+        {
+          "type": "webview",
+          "id": "codemeet.sidebarView",
+          "name": "CodeMeet"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.0",
+    "rimraf": "^5.0.0"
+  }
+}

@@ -1,0 +1,6 @@
+packages:
+  - "shared"
+  - "server"
+  - "extension"
+allowBuilds:
+  esbuild: true
