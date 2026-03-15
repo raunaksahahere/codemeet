@@ -7,7 +7,9 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [],
   "main": "./dist/extension.js",
   "scripts": {
@@ -28,6 +30,11 @@
         "command": "codemeet.joinRoom",
         "title": "CodeMeet: Join Room",
         "icon": "$(plug)"
+      },
+      {
+        "command": "codemeet.leaveRoom",
+        "title": "CodeMeet: Leave Room",
+        "icon": "$(debug-disconnect)"
       }
     ],
     "viewsContainers": {
@@ -47,12 +54,29 @@
           "name": "CodeMeet"
         }
       ]
+    },
+    "configuration": {
+      "title": "CodeMeet",
+      "properties": {
+        "codemeet.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:3001",
+          "description": "URL of the CodeMeet signaling server"
+        }
+      }
     }
   },
   "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
     "@types/vscode": "^1.85.0",
     "esbuild": "^0.20.0",
-    "typescript": "^5.4.0",
-    "rimraf": "^5.0.0"
+    "rimraf": "^5.0.0",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@codemeet/shared": "workspace:*",
+    "bcryptjs": "^3.0.3",
+    "nanoid": "^3.3.11",
+    "socket.io-client": "^4.8.3"
   }
 }

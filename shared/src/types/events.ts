@@ -13,7 +13,8 @@ export interface CreateRoomPayload {
 
 export interface JoinRoomPayload {
   roomId: string;
-  passwordHash: string;
+  /** Raw password — server compares against stored bcrypt hash. */
+  password: string;
   displayName: string;
 }
 
