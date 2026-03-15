@@ -31,6 +31,9 @@ export class RoomService {
   private readonly _onStateChanged = new vscode.EventEmitter<RoomState | null>();
   public readonly onStateChanged = this._onStateChanged.event;
 
+  private readonly _onPeerLeft = new vscode.EventEmitter<string>();
+  public readonly onPeerLeft = this._onPeerLeft.event;
+
   constructor(private readonly connectionManager: ConnectionManager) {}
 
   /** Start a new room as host. */
@@ -176,6 +179,7 @@ export class RoomService {
       if (this.state) {
         this.state.members = this.state.members.filter((m) => m.socketId !== data.socketId);
         this._onStateChanged.fire(this.state);
+        this._onPeerLeft.fire(data.socketId);
       }
     });
 
@@ -207,5 +211,6 @@ export class RoomService {
 
   dispose(): void {
     this._onStateChanged.dispose();
+    this._onPeerLeft.dispose();
   }
 }

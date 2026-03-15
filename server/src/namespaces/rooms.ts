@@ -6,6 +6,8 @@ import type {
   CreateRoomPayload,
   JoinRoomPayload,
   JoinResponsePayload,
+  EditPatchRelayPayload,
+  CursorUpdateRelayPayload,
 } from '@codemeet/shared';
 import { RoomStore } from '../store/RoomStore.js';
 import { setDisplayName, getDisplayName, removeDisplayName } from '../store/displayNames.js';
@@ -107,6 +109,23 @@ export function registerRoomsNamespace(io: Server): void {
       socket.to(roomId).emit('user-joined', { roomId, member: newMember });
 
       console.log(`[/rooms] join approved: ${getDisplayName(guestSocketId)} → room ${roomId}`);
+    });
+
+    // ── Edit patch relay (broadcast to other room members) ──
+    socket.on('edit-patch', (payload: EditPatchRelayPayload) => {
+      const room = roomStore.get(payload.roomId);
+      if (room && room.members.includes(socket.id)) {
+        socket.to(payload.roomId).emit('edit-patch', payload);
+        roomStore.touch(payload.roomId);
+      }
+    });
+
+    // ── Cursor update relay (broadcast to other room members) ──
+    socket.on('cursor-update', (payload: CursorUpdateRelayPayload) => {
+      const room = roomStore.get(payload.roomId);
+      if (room && room.members.includes(socket.id)) {
+        socket.to(payload.roomId).emit('cursor-update', payload);
+      }
     });
 
     // ── Leave Room ──

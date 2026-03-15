@@ -95,13 +95,27 @@ export interface SignalIceCandidatePayload {
   candidate: IceCandidatePayload;
 }
 
-// ── Cursor sync events (sent over DataChannel) ──
+// ── Cursor sync events (sent over DataChannel / relay) ──
 
 export interface CursorUpdatePayload {
   file: string;
   line: number;
   character: number;
   userId: string;
+  displayName: string;
+  color: string;
+}
+
+// ── Data relay events (Socket.IO relay until WebRTC DataChannel is active) ──
+
+export interface EditPatchRelayPayload {
+  roomId: string;
+  patch: import('./patches.js').EditPatch;
+}
+
+export interface CursorUpdateRelayPayload {
+  roomId: string;
+  cursor: CursorUpdatePayload;
 }
 
 // ── Aggregate event maps for type-safe Socket.IO ──
@@ -114,6 +128,8 @@ export interface ClientToServerEvents {
   'signal-offer': (payload: SignalOfferPayload) => void;
   'signal-answer': (payload: SignalAnswerPayload) => void;
   'signal-ice-candidate': (payload: SignalIceCandidatePayload) => void;
+  'edit-patch': (payload: EditPatchRelayPayload) => void;
+  'cursor-update': (payload: CursorUpdateRelayPayload) => void;
 }
 
 export interface ServerToClientEvents {
@@ -127,5 +143,7 @@ export interface ServerToClientEvents {
   'signal-offer': (payload: SignalOfferPayload) => void;
   'signal-answer': (payload: SignalAnswerPayload) => void;
   'signal-ice-candidate': (payload: SignalIceCandidatePayload) => void;
+  'edit-patch': (payload: EditPatchRelayPayload) => void;
+  'cursor-update': (payload: CursorUpdateRelayPayload) => void;
   error: (payload: ErrorPayload) => void;
 }

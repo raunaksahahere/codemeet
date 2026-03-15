@@ -28,6 +28,8 @@ export type {
   SignalAnswerPayload,
   SignalIceCandidatePayload,
   CursorUpdatePayload,
+  EditPatchRelayPayload,
+  CursorUpdateRelayPayload,
   ClientToServerEvents,
   ServerToClientEvents,
 } from './types/events.js';
