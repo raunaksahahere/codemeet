@@ -143,6 +143,27 @@ export interface FileActivityPayload {
   action: 'open' | 'close';
 }
 
+// ── Shared notes events ──
+
+/** Sent when a user updates the shared notes content. */
+export interface NoteUpdatePayload {
+  roomId: string;
+  userId: string;
+  displayName: string;
+  /** Full content of the shared note. */
+  content: string;
+  /** Incrementing revision for ordering. */
+  rev: number;
+}
+
+/** Typing presence indicator for shared notes. */
+export interface NoteTypingPayload {
+  roomId: string;
+  userId: string;
+  displayName: string;
+  isTyping: boolean;
+}
+
 // ── Aggregate event maps for type-safe Socket.IO ──
 
 export interface ClientToServerEvents {
@@ -157,6 +178,8 @@ export interface ClientToServerEvents {
   'cursor-update': (payload: CursorUpdateRelayPayload) => void;
   'file-tree': (payload: FileTreePayload) => void;
   'file-activity': (payload: FileActivityPayload) => void;
+  'note-update': (payload: NoteUpdatePayload) => void;
+  'note-typing': (payload: NoteTypingPayload) => void;
 }
 
 export interface ServerToClientEvents {
@@ -174,5 +197,7 @@ export interface ServerToClientEvents {
   'cursor-update': (payload: CursorUpdateRelayPayload) => void;
   'file-tree': (payload: FileTreePayload) => void;
   'file-activity': (payload: FileActivityPayload) => void;
+  'note-update': (payload: NoteUpdatePayload) => void;
+  'note-typing': (payload: NoteTypingPayload) => void;
   error: (payload: ErrorPayload) => void;
 }

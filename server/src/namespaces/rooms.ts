@@ -10,6 +10,8 @@ import type {
   CursorUpdateRelayPayload,
   FileTreePayload,
   FileActivityPayload,
+  NoteUpdatePayload,
+  NoteTypingPayload,
 } from '@codemeet/shared';
 import { RoomStore } from '../store/RoomStore.js';
 import { setDisplayName, getDisplayName, removeDisplayName } from '../store/displayNames.js';
@@ -143,6 +145,22 @@ export function registerRoomsNamespace(io: Server): void {
       const room = roomStore.get(payload.roomId);
       if (room && room.members.includes(socket.id)) {
         socket.to(payload.roomId).emit('file-activity', payload);
+      }
+    });
+
+    // ── Note update relay (broadcast shared note changes) ──
+    socket.on('note-update', (payload: NoteUpdatePayload) => {
+      const room = roomStore.get(payload.roomId);
+      if (room && room.members.includes(socket.id)) {
+        socket.to(payload.roomId).emit('note-update', payload);
+      }
+    });
+
+    // ── Note typing indicator relay ──
+    socket.on('note-typing', (payload: NoteTypingPayload) => {
+      const room = roomStore.get(payload.roomId);
+      if (room && room.members.includes(socket.id)) {
+        socket.to(payload.roomId).emit('note-typing', payload);
       }
     });
 

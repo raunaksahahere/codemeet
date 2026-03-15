@@ -4,11 +4,24 @@
   "description": "Real-time collaborative coding in VS Code over peer-to-peer WebRTC",
   "version": "0.1.0",
   "publisher": "raunaksahahere",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/raunaksahahere/codemeet"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Education"
+  ],
+  "keywords": [
+    "collaboration",
+    "real-time",
+    "pair-programming",
+    "webrtc",
+    "live-coding"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
@@ -35,6 +48,16 @@
         "command": "codemeet.leaveRoom",
         "title": "CodeMeet: Leave Room",
         "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "codemeet.openSharedNotes",
+        "title": "CodeMeet: Open Shared Notes",
+        "icon": "$(note)"
+      },
+      {
+        "command": "codemeet.openPrivateNotes",
+        "title": "CodeMeet: Open Private Notes",
+        "icon": "$(lock)"
       }
     ],
     "viewsContainers": {

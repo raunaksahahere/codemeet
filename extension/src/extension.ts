@@ -8,6 +8,8 @@ import { WorkspaceTreeService } from './services/workspace/WorkspaceTreeService'
 import { FileOpenTracker } from './services/workspace/FileOpenTracker';
 import { watchCodeIgnore } from './services/workspace/watchCodeIgnore';
 import { CodeIgnoreScanner } from './services/workspace/CodeIgnoreScanner';
+import { SharedNotesPanel } from './services/notes/SharedNotesPanel';
+import { PrivateNotesPanel } from './services/notes/PrivateNotesPanel';
 import { colorFromId } from './services/ColorService';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -22,6 +24,11 @@ export function activate(context: vscode.ExtensionContext) {
   let workspaceTree: WorkspaceTreeService | null = null;
   let fileTracker: FileOpenTracker | null = null;
   let codeignoreWatcher: vscode.Disposable | null = null;
+
+  // Track current room info for notes panels
+  let currentRoomId: string | null = null;
+  let currentUserId = '';
+  let currentDisplayName = '';
 
   // Register the sidebar webview provider
   const sidebarProvider = new SidebarProvider(context.extensionUri, roomService);
@@ -41,6 +48,10 @@ export function activate(context: vscode.ExtensionContext) {
         const color = colorFromId(userId);
         const me = state.members.find((m) => m.socketId === userId);
         const displayName = me?.displayName ?? 'Anonymous';
+
+        currentRoomId = state.roomId;
+        currentUserId = userId;
+        currentDisplayName = displayName;
 
         // Edit sync
         if (!editSync) {
@@ -88,6 +99,7 @@ export function activate(context: vscode.ExtensionContext) {
       fileTracker?.stop();
       codeignoreWatcher?.dispose();
       codeignoreWatcher = null;
+      currentRoomId = null;
       sidebarProvider.updateFileActivity(new Map());
       console.log('[CodeMeet] All sync services stopped');
     }
@@ -112,7 +124,26 @@ export function activate(context: vscode.ExtensionContext) {
     roomService.leaveRoom();
   });
 
-  context.subscriptions.push(startRoomCmd, joinRoomCmd, leaveRoomCmd);
+  const sharedNotesCmd = vscode.commands.registerCommand('codemeet.openSharedNotes', () => {
+    const socket = connectionManager.getRoomsSocket();
+    if (!socket || !currentRoomId) {
+      vscode.window.showWarningMessage('Join a room first to use shared notes.');
+      return;
+    }
+    SharedNotesPanel.createOrShow(
+      context.extensionUri,
+      socket,
+      currentRoomId,
+      currentUserId,
+      currentDisplayName,
+    );
+  });
+
+  const privateNotesCmd = vscode.commands.registerCommand('codemeet.openPrivateNotes', () => {
+    PrivateNotesPanel.createOrShow(context.extensionUri, context.globalState);
+  });
+
+  context.subscriptions.push(startRoomCmd, joinRoomCmd, leaveRoomCmd, sharedNotesCmd, privateNotesCmd);
   context.subscriptions.push({
     dispose: () => {
       connectionManager.dispose();
@@ -122,6 +153,8 @@ export function activate(context: vscode.ExtensionContext) {
       workspaceTree?.dispose();
       fileTracker?.dispose();
       codeignoreWatcher?.dispose();
+      SharedNotesPanel.currentPanel?.dispose();
+      PrivateNotesPanel.currentPanel?.dispose();
     },
   });
 }

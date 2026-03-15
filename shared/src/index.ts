@@ -33,6 +33,8 @@ export type {
   FileTreeEntry,
   FileTreePayload,
   FileActivityPayload,
+  NoteUpdatePayload,
+  NoteTypingPayload,
   ClientToServerEvents,
   ServerToClientEvents,
 } from './types/events.js';

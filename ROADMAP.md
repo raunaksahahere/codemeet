@@ -208,13 +208,13 @@ Peers can collaborate across multiple files in a workspace with proper file filt
 
 ### Tasks
 
-- [ ] **Shared notes panel**
+- [x] **Shared notes panel**
   - Webview with a live textarea
   - Changes broadcast via DataChannel to all peers
   - Merge using Y.js `Y.Text` CRDT — no manual conflict resolution
   - Presence indicators show who's typing
 
-- [ ] **Private notes**
+- [x] **Private notes**
   - Separate textarea stored in `context.globalState` (VS Code's local storage)
   - Never sent over network
   - Clear distinction in the UI: private panel has a lock icon in the header
@@ -225,14 +225,14 @@ Peers can collaborate across multiple files in a workspace with proper file filt
   - The WebRTC DataChannel becomes the transport
   - Eliminates the conflict edge cases from Phase 3
 
-- [ ] **Signaling server productionization**
+- [x] **Signaling server productionization**
   - Deploy to Railway or Fly.io
   - Add rate limiting (10 rooms/IP/hour)
   - Add Redis adapter for Socket.IO if scaling to multiple instances
   - TLS termination
   - Health check endpoint
 
-- [ ] **Marketplace packaging**
+- [x] **Marketplace packaging**
   - Write `package.json` manifest with proper categories, keywords, icon
   - Run `vsce package`
   - Publish to VS Code Marketplace
