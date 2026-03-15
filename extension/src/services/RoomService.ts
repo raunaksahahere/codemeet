@@ -27,6 +27,7 @@ export interface RoomState {
 export class RoomService {
   private state: RoomState | null = null;
   private roomsSocket: TypedSocket | null = null;
+  private listenedSocket: TypedSocket | null = null;
 
   private readonly _onStateChanged = new vscode.EventEmitter<RoomState | null>();
   public readonly onStateChanged = this._onStateChanged.event;
@@ -61,19 +62,28 @@ export class RoomService {
     if (!displayName) return;
 
     const roomId = customId?.trim() || nanoid(10);
-    const passwordHash = bcryptjs.hashSync(password, 12);
+    // Use async bcrypt to avoid blocking the extension host event loop
+    const passwordHash = await bcryptjs.hash(password, 10);
 
-    // Connect and create
+    // Connect and emit create-room once socket is connected
     const { rooms } = this.connectionManager.connect();
     this.roomsSocket = rooms;
     this.setupListeners();
 
-    rooms.emit('create-room', {
-      roomId,
-      passwordHash,
-      scope: scope as 'workspace' | 'folder' | 'file',
-      displayName,
-    });
+    const doCreate = () => {
+      rooms.emit('create-room', {
+        roomId,
+        passwordHash,
+        scope: scope as 'workspace' | 'folder' | 'file',
+        displayName,
+      });
+    };
+
+    if (rooms.connected) {
+      doCreate();
+    } else {
+      rooms.once('connect', doCreate);
+    }
   }
 
   /** Join an existing room as a guest. */
@@ -98,8 +108,16 @@ export class RoomService {
     this.roomsSocket = rooms;
     this.setupListeners();
 
-    rooms.emit('join-room', { roomId, password, displayName });
-    vscode.window.showInformationMessage(`Requesting to join room ${roomId}...`);
+    const doJoin = () => {
+      rooms.emit('join-room', { roomId: roomId!, password: password!, displayName: displayName! });
+      vscode.window.showInformationMessage(`Requesting to join room ${roomId}...`);
+    };
+
+    if (rooms.connected) {
+      doJoin();
+    } else {
+      rooms.once('connect', doJoin);
+    }
   }
 
   /** Leave the current room. */
@@ -118,10 +136,14 @@ export class RoomService {
 
   private setupListeners(): void {
     if (!this.roomsSocket) return;
+    // Avoid registering duplicate listeners on the same socket
+    if (this.roomsSocket === this.listenedSocket) return;
+    this.listenedSocket = this.roomsSocket;
     const socket = this.roomsSocket;
 
     // ── Host: room created ──
     socket.on('room-created', (data: RoomCreatedPayload) => {
+      console.log('[CodeMeet] room-created received:', data.roomId);
       this.state = {
         roomId: data.roomId,
         isHost: true,

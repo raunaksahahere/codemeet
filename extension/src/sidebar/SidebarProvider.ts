@@ -2,6 +2,8 @@ import * as vscode from 'vscode';
 import type { RoomState } from '../services/RoomService';
 import type { PeerActivity } from '../services/workspace/FileOpenTracker';
 
+const out = vscode.window.createOutputChannel('CodeMeet');
+
 export class SidebarProvider implements vscode.WebviewViewProvider {
   public view?: vscode.WebviewView;
   private latestState: RoomState | null = null;
@@ -17,6 +19,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
     _context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
   ) {
+    out.appendLine(`[resolveWebviewView] latestState=${this.latestState?.roomId ?? 'null'}`);
     this.view = webviewView;
 
     webviewView.webview.options = {
@@ -24,7 +27,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       localResourceRoots: [this._extensionUri],
     };
 
-    webviewView.webview.html = this._getHtmlContent();
+    this.renderHtml();
 
     // Handle messages from the webview
     webviewView.webview.onDidReceiveMessage((message: { command: string }) => {
@@ -41,21 +44,25 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       }
     });
 
-    // When the webview becomes visible, replay cached state
+    // When the webview becomes visible, re-render with latest state
     webviewView.onDidChangeVisibility(() => {
       if (webviewView.visible) {
-        this.replayState();
+        this.renderHtml();
       }
     });
-
-    // Also send state right now (the webview just loaded)
-    setTimeout(() => this.replayState(), 100);
   }
 
   public updateState(state: RoomState | null): void {
+    out.appendLine(`[updateState] roomId=${state?.roomId ?? 'null'} view=${!!this.view}`);
     this.latestState = state;
-    if (this.view?.visible) {
-      this.view.webview.postMessage({ type: 'stateUpdate', state });
+    if (this.view) {
+      this.renderHtml();
+      // Reveal the sidebar so the user sees the updated state
+      this.view.show(true);
+    } else {
+      // View not yet resolved — open the sidebar so resolveWebviewView runs
+      out.appendLine('[updateState] view is null, opening sidebar...');
+      vscode.commands.executeCommand('workbench.view.extension.codemeet-sidebar');
     }
   }
 
@@ -65,22 +72,42 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
       obj[file] = peers;
     }
     this.latestActivity = obj;
-    if (this.view?.visible) {
-      this.view.webview.postMessage({ type: 'fileActivity', activity: obj });
-    }
+    this.renderHtml();
   }
 
-  private replayState(): void {
-    if (!this.view) return;
-    // Send current room state from the service (in case events were missed)
-    const currentState = this.latestState ?? this._roomService.getState();
-    this.view.webview.postMessage({ type: 'stateUpdate', state: currentState });
-    if (Object.keys(this.latestActivity).length > 0) {
-      this.view.webview.postMessage({ type: 'fileActivity', activity: this.latestActivity });
-    }
+  /** Re-render the full webview HTML with current state baked in. */
+  private renderHtml(): void {
+    if (!this.view) { out.appendLine('[renderHtml] view is null, skipping'); return; }
+    const state = this.latestState ?? this._roomService.getState();
+    out.appendLine(`[renderHtml] rendering with state=${state?.roomId ?? 'null'}`);
+    this.view.webview.html = this._getHtmlContent(state, this.latestActivity);
   }
 
-  private _getHtmlContent(): string {
+  private _getHtmlContent(state: RoomState | null, activity: Record<string, PeerActivity[]>): string {
+    // Pre-render the correct view based on state
+    const isConnected = state !== null;
+    const membersHtml = state
+      ? state.members
+          .map(
+            (m) =>
+              `<li class="member-item"><span class="member-dot" style="background:${m.color}"></span><span>${m.displayName}</span></li>`,
+          )
+          .join('')
+      : '';
+
+    const files = Object.keys(activity);
+    const activityHtml =
+      files.length === 0
+        ? '<span style="color:var(--vscode-descriptionForeground)">No activity yet</span>'
+        : files
+            .flatMap((file) =>
+              activity[file].map(
+                (peer) =>
+                  `<div class="file-activity-item"><span class="file-icon">📄</span><strong>${peer.displayName}</strong><span>→ ${file}</span></div>`,
+              ),
+            )
+            .join('');
+
     return /* html */ `
       <!DOCTYPE html>
       <html lang="en">
@@ -153,7 +180,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         <h2>CodeMeet</h2>
 
         <!-- Disconnected view -->
-        <div id="disconnected-view">
+        <div id="disconnected-view" class="${isConnected ? 'hidden' : ''}">
           <div class="status-bar">
             <span class="dot disconnected"></span>
             <span>Not connected</span>
@@ -164,24 +191,22 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         </div>
 
         <!-- Connected view -->
-        <div id="connected-view" class="hidden">
+        <div id="connected-view" class="${isConnected ? '' : 'hidden'}">
           <div class="status-bar">
             <span class="dot connected"></span>
             <span>Connected</span>
           </div>
           <div class="section">
             <p>Room</p>
-            <span id="room-id" class="room-id">—</span>
+            <span id="room-id" class="room-id">${state?.roomId ?? '—'}</span>
           </div>
           <div class="section">
             <p>Members</p>
-            <ul id="member-list" class="member-list"></ul>
+            <ul id="member-list" class="member-list">${membersHtml}</ul>
           </div>
           <div class="section">
             <p>File Activity</p>
-            <div id="file-activity" class="file-activity">
-              <span style="color:var(--vscode-descriptionForeground)">No activity yet</span>
-            </div>
+            <div id="file-activity" class="file-activity">${activityHtml}</div>
           </div>
           <button class="secondary" onclick="send('leaveRoom')" style="margin-top:16px">
             Disconnect
@@ -191,63 +216,6 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
         <script>
           const vscode = acquireVsCodeApi();
           function send(cmd) { vscode.postMessage({ command: cmd }); }
-
-          window.addEventListener('message', (event) => {
-            const msg = event.data;
-
-            if (msg.type === 'stateUpdate') {
-              const state = msg.state;
-              const disconnected = document.getElementById('disconnected-view');
-              const connected = document.getElementById('connected-view');
-
-              if (!state) {
-                disconnected.classList.remove('hidden');
-                connected.classList.add('hidden');
-                return;
-              }
-
-              disconnected.classList.add('hidden');
-              connected.classList.remove('hidden');
-
-              document.getElementById('room-id').textContent = state.roomId;
-
-              const list = document.getElementById('member-list');
-              list.innerHTML = '';
-              for (const m of state.members) {
-                const li = document.createElement('li');
-                li.className = 'member-item';
-                li.innerHTML =
-                  '<span class="member-dot" style="background:' + m.color + '"></span>' +
-                  '<span>' + m.displayName + '</span>';
-                list.appendChild(li);
-              }
-            }
-
-            if (msg.type === 'fileActivity') {
-              const container = document.getElementById('file-activity');
-              const activity = msg.activity;
-              const files = Object.keys(activity);
-
-              if (files.length === 0) {
-                container.innerHTML = '<span style="color:var(--vscode-descriptionForeground)">No activity yet</span>';
-                return;
-              }
-
-              container.innerHTML = '';
-              for (const file of files) {
-                const peers = activity[file];
-                for (const peer of peers) {
-                  const div = document.createElement('div');
-                  div.className = 'file-activity-item';
-                  div.innerHTML =
-                    '<span class="file-icon">📄</span>' +
-                    '<strong>' + peer.displayName + '</strong>' +
-                    '<span>→ ' + file + '</span>';
-                  container.appendChild(div);
-                }
-              }
-            }
-          });
         </script>
       </body>
       </html>

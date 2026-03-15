@@ -86,6 +86,9 @@ export function registerRoomsNamespace(io: Server): void {
       const { roomId, guestSocketId, accepted } = payload;
       const room = roomStore.get(roomId);
 
+      console.log(`[/rooms] join-response from ${socket.id}: roomId=${roomId} accepted=${accepted}`);
+      console.log(`[/rooms] room exists=${!!room} hostSocketId=${room?.hostSocketId ?? 'N/A'} socketId=${socket.id} match=${room?.hostSocketId === socket.id}`);
+
       if (!room || room.hostSocketId !== socket.id) {
         socket.emit('error', { message: 'Not authorized' });
         return;
@@ -202,8 +205,10 @@ export function registerRoomsNamespace(io: Server): void {
 
     // ── Disconnect ──
     socket.on('disconnect', () => {
+      console.log(`[/rooms] disconnect: ${socket.id} — checking rooms...`);
       const userRooms = roomStore.getRoomsBySocket(socket.id);
       for (const room of userRooms) {
+        console.log(`[/rooms] disconnect cleanup: room=${room.id} isHost=${room.hostSocketId === socket.id}`);
         handleLeaveRoom(socket, room.id, rooms);
       }
       removeDisplayName(socket.id);

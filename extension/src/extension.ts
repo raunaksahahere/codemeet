@@ -33,11 +33,14 @@ export function activate(context: vscode.ExtensionContext) {
   // Register the sidebar webview provider
   const sidebarProvider = new SidebarProvider(context.extensionUri, roomService);
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider('codemeet.sidebarView', sidebarProvider),
+    vscode.window.registerWebviewViewProvider('codemeet.sidebarView', sidebarProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    }),
   );
 
   // Wire room state changes to sidebar updates + start/stop sync services
   roomService.onStateChanged((state) => {
+    console.log('[CodeMeet] onStateChanged fired, roomId:', state?.roomId ?? 'null');
     sidebarProvider.updateState(state);
 
     if (state) {
