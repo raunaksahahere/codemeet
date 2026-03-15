@@ -8,6 +8,8 @@ import type {
   JoinResponsePayload,
   EditPatchRelayPayload,
   CursorUpdateRelayPayload,
+  FileTreePayload,
+  FileActivityPayload,
 } from '@codemeet/shared';
 import { RoomStore } from '../store/RoomStore.js';
 import { setDisplayName, getDisplayName, removeDisplayName } from '../store/displayNames.js';
@@ -125,6 +127,22 @@ export function registerRoomsNamespace(io: Server): void {
       const room = roomStore.get(payload.roomId);
       if (room && room.members.includes(socket.id)) {
         socket.to(payload.roomId).emit('cursor-update', payload);
+      }
+    });
+
+    // ── File tree relay (host sends tree to all guests) ──
+    socket.on('file-tree', (payload: FileTreePayload) => {
+      const room = roomStore.get(payload.roomId);
+      if (room && room.members.includes(socket.id)) {
+        socket.to(payload.roomId).emit('file-tree', payload);
+      }
+    });
+
+    // ── File activity relay (broadcast which file a user has open) ──
+    socket.on('file-activity', (payload: FileActivityPayload) => {
+      const room = roomStore.get(payload.roomId);
+      if (room && room.members.includes(socket.id)) {
+        socket.to(payload.roomId).emit('file-activity', payload);
       }
     });
 

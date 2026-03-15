@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { RoomState } from '../services/RoomService';
+import type { PeerActivity } from '../services/workspace/FileOpenTracker';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
   public view?: vscode.WebviewView;
@@ -42,6 +43,17 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
   public updateState(state: RoomState | null): void {
     if (this.view) {
       this.view.webview.postMessage({ type: 'stateUpdate', state });
+    }
+  }
+
+  public updateFileActivity(activity: Map<string, PeerActivity[]>): void {
+    if (this.view) {
+      // Convert Map to serializable object
+      const obj: Record<string, PeerActivity[]> = {};
+      for (const [file, peers] of activity) {
+        obj[file] = peers;
+      }
+      this.view.webview.postMessage({ type: 'fileActivity', activity: obj });
     }
   }
 
@@ -105,6 +117,13 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           }
           .section { margin-top: 16px; }
           .hidden { display: none; }
+          .file-activity { margin-top: 8px; font-size: 11px; }
+          .file-activity-item {
+            display: flex; align-items: center; gap: 6px;
+            padding: 3px 0; font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+          }
+          .file-icon { font-size: 12px; }
         </style>
       </head>
       <body>
@@ -135,6 +154,12 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
             <p>Members</p>
             <ul id="member-list" class="member-list"></ul>
           </div>
+          <div class="section">
+            <p>File Activity</p>
+            <div id="file-activity" class="file-activity">
+              <span style="color:var(--vscode-descriptionForeground)">No activity yet</span>
+            </div>
+          </div>
           <button class="secondary" onclick="send('leaveRoom')" style="margin-top:16px">
             Disconnect
           </button>
@@ -145,32 +170,59 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           function send(cmd) { vscode.postMessage({ command: cmd }); }
 
           window.addEventListener('message', (event) => {
-            const { type, state } = event.data;
-            if (type !== 'stateUpdate') return;
+            const msg = event.data;
 
-            const disconnected = document.getElementById('disconnected-view');
-            const connected = document.getElementById('connected-view');
+            if (msg.type === 'stateUpdate') {
+              const state = msg.state;
+              const disconnected = document.getElementById('disconnected-view');
+              const connected = document.getElementById('connected-view');
 
-            if (!state) {
-              disconnected.classList.remove('hidden');
-              connected.classList.add('hidden');
-              return;
+              if (!state) {
+                disconnected.classList.remove('hidden');
+                connected.classList.add('hidden');
+                return;
+              }
+
+              disconnected.classList.add('hidden');
+              connected.classList.remove('hidden');
+
+              document.getElementById('room-id').textContent = state.roomId;
+
+              const list = document.getElementById('member-list');
+              list.innerHTML = '';
+              for (const m of state.members) {
+                const li = document.createElement('li');
+                li.className = 'member-item';
+                li.innerHTML =
+                  '<span class="member-dot" style="background:' + m.color + '"></span>' +
+                  '<span>' + m.displayName + '</span>';
+                list.appendChild(li);
+              }
             }
 
-            disconnected.classList.add('hidden');
-            connected.classList.remove('hidden');
+            if (msg.type === 'fileActivity') {
+              const container = document.getElementById('file-activity');
+              const activity = msg.activity;
+              const files = Object.keys(activity);
 
-            document.getElementById('room-id').textContent = state.roomId;
+              if (files.length === 0) {
+                container.innerHTML = '<span style="color:var(--vscode-descriptionForeground)">No activity yet</span>';
+                return;
+              }
 
-            const list = document.getElementById('member-list');
-            list.innerHTML = '';
-            for (const m of state.members) {
-              const li = document.createElement('li');
-              li.className = 'member-item';
-              li.innerHTML =
-                '<span class="member-dot" style="background:' + m.color + '"></span>' +
-                '<span>' + m.displayName + '</span>';
-              list.appendChild(li);
+              container.innerHTML = '';
+              for (const file of files) {
+                const peers = activity[file];
+                for (const peer of peers) {
+                  const div = document.createElement('div');
+                  div.className = 'file-activity-item';
+                  div.innerHTML =
+                    '<span class="file-icon">📄</span>' +
+                    '<strong>' + peer.displayName + '</strong>' +
+                    '<span>→ ' + file + '</span>';
+                  container.appendChild(div);
+                }
+              }
             }
           });
         </script>

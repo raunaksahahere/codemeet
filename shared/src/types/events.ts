@@ -118,6 +118,31 @@ export interface CursorUpdateRelayPayload {
   cursor: CursorUpdatePayload;
 }
 
+// ── Workspace sync events ──
+
+/** A single entry in the workspace file tree. */
+export interface FileTreeEntry {
+  /** Relative path from workspace root. */
+  path: string;
+  type: 'file' | 'directory';
+}
+
+/** Sent by host to share the workspace file tree with guests. */
+export interface FileTreePayload {
+  roomId: string;
+  entries: FileTreeEntry[];
+}
+
+/** Notifies peers which file a user has open/closed. */
+export interface FileActivityPayload {
+  roomId: string;
+  userId: string;
+  displayName: string;
+  /** The file that was opened/closed (relative path). */
+  file: string;
+  action: 'open' | 'close';
+}
+
 // ── Aggregate event maps for type-safe Socket.IO ──
 
 export interface ClientToServerEvents {
@@ -130,6 +155,8 @@ export interface ClientToServerEvents {
   'signal-ice-candidate': (payload: SignalIceCandidatePayload) => void;
   'edit-patch': (payload: EditPatchRelayPayload) => void;
   'cursor-update': (payload: CursorUpdateRelayPayload) => void;
+  'file-tree': (payload: FileTreePayload) => void;
+  'file-activity': (payload: FileActivityPayload) => void;
 }
 
 export interface ServerToClientEvents {
@@ -145,5 +172,7 @@ export interface ServerToClientEvents {
   'signal-ice-candidate': (payload: SignalIceCandidatePayload) => void;
   'edit-patch': (payload: EditPatchRelayPayload) => void;
   'cursor-update': (payload: CursorUpdateRelayPayload) => void;
+  'file-tree': (payload: FileTreePayload) => void;
+  'file-activity': (payload: FileActivityPayload) => void;
   error: (payload: ErrorPayload) => void;
 }

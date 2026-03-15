@@ -30,6 +30,9 @@ export type {
   CursorUpdatePayload,
   EditPatchRelayPayload,
   CursorUpdateRelayPayload,
+  FileTreeEntry,
+  FileTreePayload,
+  FileActivityPayload,
   ClientToServerEvents,
   ServerToClientEvents,
 } from './types/events.js';
