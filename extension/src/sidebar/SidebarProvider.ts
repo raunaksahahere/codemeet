@@ -4,10 +4,12 @@ import type { PeerActivity } from '../services/workspace/FileOpenTracker';
 
 export class SidebarProvider implements vscode.WebviewViewProvider {
   public view?: vscode.WebviewView;
+  private latestState: RoomState | null = null;
+  private latestActivity: Record<string, PeerActivity[]> = {};
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
-    _roomService: { getState(): RoomState | null },
+    private readonly _roomService: { getState(): RoomState | null },
   ) {}
 
   public resolveWebviewView(
@@ -38,22 +40,43 @@ export class SidebarProvider implements vscode.WebviewViewProvider {
           break;
       }
     });
+
+    // When the webview becomes visible, replay cached state
+    webviewView.onDidChangeVisibility(() => {
+      if (webviewView.visible) {
+        this.replayState();
+      }
+    });
+
+    // Also send state right now (the webview just loaded)
+    setTimeout(() => this.replayState(), 100);
   }
 
   public updateState(state: RoomState | null): void {
-    if (this.view) {
+    this.latestState = state;
+    if (this.view?.visible) {
       this.view.webview.postMessage({ type: 'stateUpdate', state });
     }
   }
 
   public updateFileActivity(activity: Map<string, PeerActivity[]>): void {
-    if (this.view) {
-      // Convert Map to serializable object
-      const obj: Record<string, PeerActivity[]> = {};
-      for (const [file, peers] of activity) {
-        obj[file] = peers;
-      }
+    const obj: Record<string, PeerActivity[]> = {};
+    for (const [file, peers] of activity) {
+      obj[file] = peers;
+    }
+    this.latestActivity = obj;
+    if (this.view?.visible) {
       this.view.webview.postMessage({ type: 'fileActivity', activity: obj });
+    }
+  }
+
+  private replayState(): void {
+    if (!this.view) return;
+    // Send current room state from the service (in case events were missed)
+    const currentState = this.latestState ?? this._roomService.getState();
+    this.view.webview.postMessage({ type: 'stateUpdate', state: currentState });
+    if (Object.keys(this.latestActivity).length > 0) {
+      this.view.webview.postMessage({ type: 'fileActivity', activity: this.latestActivity });
     }
   }
 
