@@ -3,7 +3,7 @@
 // loads this repo's extension from source, and runs extension/test/e2e/index.cjs inside the host.
 // Requires: a local VS Code (CODEMEET_VSCODE_BIN or `code` on PATH), a display, Postgres (CODEMEET_TEST_DATABASE_URL).
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
@@ -40,8 +40,9 @@ const port = await new Promise((resolve) => {
 });
 const serverHome = path.join(tmp, 'server-home');
 mkdirSync(serverHome, { recursive: true, mode: 0o700 });
+const serverLog = openSync(path.join(tmp, 'server.log'), 'a');
 const server = spawn(process.execPath, [cli, 'server', 'start', '--migrate', '--port', String(port)], {
-  env: { ...process.env, CODEMEET_HOME: serverHome, DATABASE_URL: dbUrl.toString() }, stdio: 'ignore',
+  env: { ...process.env, CODEMEET_DEBUG_RPC: '1', CODEMEET_HOME: serverHome, DATABASE_URL: dbUrl.toString() }, stdio: ['ignore', serverLog, serverLog],
 });
 const out = path.join(tmp, 'result.json');
 let code = 1;
@@ -69,6 +70,7 @@ try {
   clearTimeout(timer);
 } finally {
   server.kill('SIGTERM');
+  closeSync(serverLog);
   if (existsSync(out)) {
     const r = JSON.parse(readFileSync(out, 'utf8'));
     for (const s of r.results) console.log(`${s.ok ? 'PASS' : 'FAIL'}  ${s.name}${s.ok ? ` (${s.ms}ms)` : `\n      ${s.error}`}`);

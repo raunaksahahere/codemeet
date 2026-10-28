@@ -151,6 +151,16 @@ export class Hub {
   }
 
   private async dispatch(sock: Sock, req: unknown): Promise<Ack<unknown>> {
+    const started = Date.now();
+    const result = await this.dispatchInner(sock, req);
+    if (process.env.CODEMEET_DEBUG_RPC === '1') {
+      const op = (req as { op?: unknown } | null)?.op;
+      console.error(`[rpc] ${String(op)} ${Date.now() - started}ms ${result.ok ? 'ok' : `error:${result.error.code}`} sock=${sock.id}`);
+    }
+    return result;
+  }
+
+  private async dispatchInner(sock: Sock, req: unknown): Promise<Ack<unknown>> {
     try {
       if (!sock.data.bucket.take()) throw new RpcError('rate_limited', 'Too many requests; slow down');
       if (typeof req !== 'object' || req === null) throw new RpcError('invalid', 'Malformed request');

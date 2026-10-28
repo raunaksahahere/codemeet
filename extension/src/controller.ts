@@ -28,6 +28,8 @@ export class Controller implements vscode.Disposable {
   private responder: Responder | null = null;
   private ws: VsCodeWorkspace | null = null;
   private starting = false;
+  /** True while this machine is deliberately closing/leaving, so the server's own room-closed echo is not treated as a surprise. */
+  private closing = false;
   private readonly proposals = new Map<string, ProposalView>();
   private readonly agentIds: Partial<Record<Provider, string>> = {};
   private sessionDisposables: vscode.Disposable[] = [];
@@ -237,10 +239,12 @@ export class Controller implements vscode.Disposable {
     if (!pick) return;
     const permanent = pick === choices[0];
     const root = this.ws?.root;
+    this.closing = true;
     try {
       if (permanent) await this.session.call(host ? 'room.close' : 'room.leave', {}).catch(() => undefined);
     } finally {
       await this.teardown();
+      this.closing = false;
       if (permanent && root) await this.ctx.secrets.delete(this.secretKey(root));
     }
   }
@@ -265,8 +269,9 @@ export class Controller implements vscode.Disposable {
     sync.on('remoteChange', (c) => this.out.appendLine(`remote ${c.kind}: ${c.path}`));
     this.cursors = new CursorDecorationManager();
 
-    session.on('evt', (e) => this.onEvent(e));
-    session.on('state', (s, detail) => this.onSessionState(s, detail));
+    // Ignore anything from a session that has since been replaced or torn down.
+    session.on('evt', (e) => this.session === session && this.onEvent(e));
+    session.on('state', (s, detail) => this.session === session && this.onSessionState(s, detail));
 
     if (mode === 'new') {
       if (role === 'host') this.report(await sync.publishBaseline());
@@ -374,6 +379,7 @@ export class Controller implements vscode.Disposable {
     if (s === 'offline') this.patch({ phase: 'offline', detail: 'reconnecting automatically' });
     else if (s === 'online' && this.state.phase === 'offline') this.patch({ phase: 'syncing', detail: '' });
     else if (s === 'closed') {
+      if (this.closing) return;
       void vscode.window.showWarningMessage(`CodeMeet room ended: ${detail ?? 'closed'}. Your local files are unchanged.`);
       void this.teardown(true);
     }
@@ -618,8 +624,13 @@ export class Controller implements vscode.Disposable {
         await this.session?.call('proposal.decide', { proposalId: id, approve });
       },
       closeRoom: async () => {
-        await this.session?.call('room.close', {});
-        await this.teardown();
+        this.closing = true;
+        try {
+          await this.session?.call('room.close', {});
+          await this.teardown();
+        } finally {
+          this.closing = false;
+        }
       },
       stop: () => this.teardown(),
       listenerCounts: () => ({ evt: this.session?.listenerCount('evt') ?? 0, state: this.session?.listenerCount('state') ?? 0, disposables: this.sessionDisposables.length }),
