@@ -1,0 +1,16 @@
+node_modules/
+dist/
+dist-types/
+coverage/
+*.vsix
+*.tgz
+*.log
+.env
+.env.*
+!.env.example
+server.env
+.codemeet/
+.DS_Store
+.vscode-test/
+release/
+.tmp/

@@ -1,43 +1,6 @@
-// @codemeet/shared — barrel export
-export type {
-  PatchRange,
-  EditPatch,
-} from './types/patches.js';
-
-export type {
-  RoomScope,
-  Room,
-  RoomMember,
-} from './types/room.js';
-
-export type {
-  CreateRoomPayload,
-  JoinRoomPayload,
-  JoinResponsePayload,
-  RoomCreatedPayload,
-  JoinRequestPayload,
-  JoinApprovedPayload,
-  JoinRejectedPayload,
-  UserJoinedPayload,
-  UserLeftPayload,
-  RoomClosedPayload,
-  ErrorPayload,
-  SdpPayload,
-  IceCandidatePayload,
-  SignalOfferPayload,
-  SignalAnswerPayload,
-  SignalIceCandidatePayload,
-  CursorUpdatePayload,
-  EditPatchRelayPayload,
-  CursorUpdateRelayPayload,
-  FileTreeEntry,
-  FileTreePayload,
-  FileActivityPayload,
-  NoteUpdatePayload,
-  NoteTypingPayload,
-  YjsUpdatePayload,
-  YjsSyncRequestPayload,
-  YjsSyncResponsePayload,
-  ClientToServerEvents,
-  ServerToClientEvents,
-} from './types/events.js';
+// @codemeet/shared — wire protocol, sharing policy and path rules used by every component.
+export * from './protocol.js';
+export * from './paths.js';
+export * from './policy.js';
+export * from './hash.js';
+export * from './ytext.js';

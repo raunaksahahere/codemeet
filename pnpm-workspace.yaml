@@ -1,6 +1,8 @@
 packages:
   - "shared"
+  - "core"
   - "server"
+  - "cli"
   - "extension"
 allowBuilds:
   esbuild: true

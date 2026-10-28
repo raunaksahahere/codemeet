@@ -1,0 +1,40 @@
+# Local PostgreSQL for CodeMeet development and demos.
+#   docker compose up -d postgres            # database only (run the server with the CLI)
+#   docker compose --profile server up -d    # database + CodeMeet backend container
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: codemeet
+      POSTGRES_PASSWORD: ${CODEMEET_PG_PASSWORD:-codemeet-local-dev}
+      POSTGRES_DB: codemeet
+    ports:
+      # Bound to loopback only; change the host port with CODEMEET_PG_PORT if 5432 is taken.
+      - "127.0.0.1:${CODEMEET_PG_PORT:-5432}:5432"
+    volumes:
+      - codemeet-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codemeet -d codemeet"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  server:
+    profiles: ["server"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://codemeet:${CODEMEET_PG_PASSWORD:-codemeet-local-dev}@postgres:5432/codemeet?sslmode=disable
+      CODEMEET_DB_SSL: disable
+      HOST: 0.0.0.0
+      PORT: "3001"
+    ports:
+      - "${CODEMEET_PORT:-3001}:3001"
+    command: ["node", "cli/dist/codemeet.cjs", "server", "start", "--migrate"]
+
+volumes:
+  codemeet-pg:

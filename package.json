@@ -2,26 +2,34 @@
   "name": "codemeet",
   "version": "0.1.0",
   "private": true,
-  "description": "Real-time collaborative coding in VS Code over P2P WebRTC",
+  "description": "Real-time code collaboration between developers and their coding agents (Claude, Codex)",
   "scripts": {
     "build": "pnpm -r run build",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write \"**/*.{ts,json,md,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,json,md,yaml}\"",
-    "typecheck": "pnpm -r run typecheck",
-    "test": "vitest run",
-    "clean": "pnpm -r run clean"
+    "typecheck": "pnpm --filter ./shared --filter ./core --filter ./server run build && pnpm -r run typecheck",
+    "test": "vitest run shared/ core/ server/ extension/",
+    "clean": "pnpm -r run clean",
+    "test:db": "vitest run tests/",
+    "test:extension-host": "node scripts/e2e-extension.mjs",
+    "package": "node scripts/package-all.mjs"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.57.0",
+    "pg": "^8.23.1",
     "prettier": "^3.2.0",
     "typescript": "^5.4.0",
     "vitest": "^1.6.0"
   },
   "engines": {
-    "node": ">=18.0.0",
+    "node": ">=20.11.0",
     "pnpm": ">=9.0.0"
-  }
+  },
+  "packageManager": "pnpm@10.18.0"
 }

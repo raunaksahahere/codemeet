@@ -7,53 +7,47 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
-
     strategy:
+      fail-fast: false
       matrix:
-        node-version: [18, 20]
-
+        node-version: [20, 22, 24]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: codemeet
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U codemeet" --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      CODEMEET_TEST_DATABASE_URL: postgresql://codemeet:ci-only-password@127.0.0.1:5432/postgres?sslmode=disable
     steps:
       - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v3
+      - uses: pnpm/action-setup@v4
         with:
-          version: 10
-
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+          version: 10.18.0
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build shared (required before typecheck)
-        run: pnpm --filter @codemeet/shared run build
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
-
-      - name: Package extension
-        working-directory: extension
-        run: |
-          npx @vscode/vsce package --no-dependencies --skip-license
-        if: matrix.node-version == 20
-
-      - name: Upload .vsix artifact
-        uses: actions/upload-artifact@v4
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm test
+      - name: Package CLI + VSIX
+        run: node scripts/package-all.mjs
+      - name: Integration, CLI end-to-end and artifact tests (real PostgreSQL)
+        run: pnpm test:db
+      - uses: actions/upload-artifact@v4
+        if: matrix.node-version == 24
         with:
-          name: codemeet-vsix
-          path: extension/*.vsix
-        if: matrix.node-version == 20
+          name: codemeet-artifacts
+          path: |
+            release/*.tgz
+            release/*.vsix
+            release/SHA256SUMS

@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
 
 const STORAGE_KEY = 'codemeet.privateNotes';
@@ -62,14 +63,16 @@ export class PrivateNotesPanel implements vscode.Disposable {
   }
 
   private getHtml(): string {
+    const nonce = randomBytes(16).toString('base64');
     return /* html */ `
       <!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8" />
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}';" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Private Notes</title>
-        <style>
+        <style nonce="${nonce}">
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body {
             font-family: var(--vscode-font-family);
@@ -130,7 +133,7 @@ export class PrivateNotesPanel implements vscode.Disposable {
         <textarea id="notes" placeholder="Your private notes... these are stored locally and never shared."></textarea>
         <div class="footer">🔒 These notes are stored locally and never sent over the network.</div>
 
-        <script>
+        <script nonce="${nonce}">
           const vscode = acquireVsCodeApi();
           const textarea = document.getElementById('notes');
 
