@@ -3,14 +3,12 @@ import { existsSync, readFileSync, realpathSync, rmSync, statSync } from 'node:f
 import * as path from 'node:path';
 import { promisify } from 'node:util';
 import { Command, InvalidArgumentError } from 'commander';
-import { Session } from '@codemeet/core';
+import { Session, binaryFor, detectProvider, runAgent, type AgentHost } from '@codemeet/core';
 import type { ActivityEntry, GrantView, MessageView, Participant, ProposalView, Provider, RoomInfo, JoinRequestView } from '@codemeet/shared';
-import { runAgent } from './agentRun.js';
 import { runDaemon } from './daemon.js';
 import { CliError, files, loadConfig, loadSession, saveConfig, saveSession, type SavedSession } from './home.js';
 import { connectDaemon, readDaemonInfo, type IpcClient } from './ipc.js';
 import { runMcpServer } from './mcp.js';
-import { binaryFor, detectProvider } from './providers.js';
 import { cmdDbCheck, cmdDbMigrate, cmdDoctor, cmdInit, cmdServerStart } from './serverCmds.js';
 import { VERSION, ago, expandPermission, resolveSecret, startDaemonProcess, table } from './util.js';
 
@@ -242,10 +240,20 @@ agent.command('run <provider> [task...]').description('Run claude or codex on a 
     if (provider !== 'claude' && provider !== 'codex') throw new CliError('Provider must be "claude" or "codex".');
     const task = taskWords.join(' ').trim();
     if (!task) throw new CliError('Describe the task, e.g. codemeet agent run claude "add input validation to src/api.ts"');
-    const st = await c.call<{ projectRoot: string }>('status');
+    const st = await c.call<{ projectRoot: string; phase: string; room: RoomInfo | null }>('status');
+    const host: AgentHost = {
+      projectRoot: st.projectRoot,
+      runsDir: files.agents(),
+      async room() {
+        if (st.phase !== 'syncing' || !st.room) throw new Error(`Session is not ready (phase: ${st.phase}). Run \`codemeet status\`.`);
+        return st.room;
+      },
+      ensureAgent: (p) => c.call('agent.ensure', { provider: p }),
+      call: (op, input) => rpc(c, op, input),
+    };
     try {
-      const r = await runAgent(c, {
-        provider, task, projectRoot: st.projectRoot, timeoutMs: Number(o.timeout) * 60_000, allowShell: !!o.allowShell,
+      const r = await runAgent(host, {
+        provider, task, timeoutMs: Number(o.timeout) * 60_000, allowShell: !!o.allowShell,
         budgetUsd: o.budget ? Number(o.budget) : undefined, keep: o.keep, log: (l) => console.log(`[${provider}] ${l}`),
       });
       if (r.proposal) console.log(`\nProposal ${r.proposal.id}: ${r.proposal.changes.length} file(s). Review: codemeet diff ${r.proposal.id}   Apply: codemeet approve ${r.proposal.id}`);

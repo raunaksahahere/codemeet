@@ -1,12 +1,9 @@
 import { appendFileSync, rmSync } from 'node:fs';
-import { DocSync, NodeWorkspace, Session, policyFromRoom, type SyncReport } from '@codemeet/core';
+import { DocSync, FileStateStore, NodeWorkspace, Responder, Session, acquireLock, policyFromRoom, releaseLock, type SyncReport } from '@codemeet/core';
 import { RpcError, type ActivityEntry, type RpcInput, type RpcOp } from '@codemeet/shared';
 import { files, loadSession, saveSession, type SavedSession } from './home.js';
 import { startIpcServer, type IpcServer } from './ipc.js';
-import { FileStateStore } from './localState.js';
-import { acquireLock, releaseLock } from './projectLock.js';
 import { watchProject } from './watcher.js';
-import { Responder } from './responder.js';
 
 type Phase = 'starting' | 'bootstrapping' | 'blocked' | 'syncing' | 'offline' | 'closed' | 'error';
 
@@ -232,7 +229,7 @@ export async function runDaemon(): Promise<void> {
         log(`resumed ${n} documents from local state`);
       }
       watcher = watchProject(saved.projectRoot, policy, sync!, (e) => log(`watcher error: ${e.message}`));
-      responder = new Responder({ session, saved, log, projectRoot: saved.projectRoot, onChange: () => undefined });
+      responder = new Responder({ session, agentIds: () => saved.agents, log });
       await responder.start();
       st.phase = 'syncing';
       st.reason = null;

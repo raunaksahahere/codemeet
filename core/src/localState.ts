@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
-import type { StateStore } from '@codemeet/core';
+import type { StateStore } from './docsync.js';
 
 /** Persists each document's CRDT state under <project>/.codemeet/state/<room>/. */
 export class FileStateStore implements StateStore {

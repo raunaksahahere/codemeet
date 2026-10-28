@@ -1,20 +1,29 @@
 import { promises as fs, mkdirSync, rmSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import * as path from 'node:path';
-import { NodeWorkspace } from '@codemeet/core';
-import { SharingPolicy, sha256, type ProposalView, type Provider, type RoomInfo, type RpcInput } from '@codemeet/shared';
-import { files } from './home.js';
-import { IpcClient } from './ipc.js';
+import { SharingPolicy, sha256, type ProposalView, type Provider, type RoomInfo, type RpcInput, type RpcOp, type RpcResults } from '@codemeet/shared';
 import { requireProvider, runProvider } from './providers.js';
+import { NodeWorkspace } from './workspace.js';
+
+/** What an agent run needs from whoever owns the session (the CLI daemon or the VS Code extension). */
+export interface AgentHost {
+  projectRoot: string;
+  /** Private directory for isolated run snapshots. */
+  runsDir: string;
+  /** Throws a user-readable error unless the session is synced and ready. */
+  room(): Promise<RoomInfo>;
+  ensureAgent(provider: Provider): Promise<{ agentId: string; label: string }>;
+  call<K extends RpcOp>(op: K, input: RpcInput<K>): Promise<RpcResults[K]>;
+}
 
 export interface AgentRunOptions {
   provider: Provider;
   task: string;
-  projectRoot: string;
   timeoutMs: number;
   allowShell: boolean;
   budgetUsd?: number;
   keep?: boolean;
+  signal?: AbortSignal;
   log: (line: string) => void;
 }
 
@@ -56,23 +65,19 @@ async function diffSnapshot(snap: NodeWorkspace, base: Map<string, string>): Pro
  * changes as a reviewable proposal. The user's working tree is never touched: the only way
  * the agent's work reaches it is an approved proposal applied through the shared server state.
  */
-export async function runAgent(client: IpcClient, o: AgentRunOptions): Promise<{ proposal: ProposalView | null; text: string }> {
+export async function runAgent(host: AgentHost, o: AgentRunOptions): Promise<{ proposal: ProposalView | null; text: string }> {
   const info = await requireProvider(o.provider);
   o.log(`using ${info.binary} ${info.version ?? ''}`.trim());
-  const status = await client.call<{ phase: string; room: RoomInfo | null }>('status');
-  if (status.phase !== 'syncing' || !status.room) throw new Error(`Session is not ready (phase: ${status.phase}). Run \`codemeet status\`.`);
+  const room = await host.room();
 
-  const agent = await client.call<{ agentId: string; label: string }>('agent.ensure', { provider: o.provider });
+  const agent = await host.ensureAgent(o.provider);
   const runId = `run_${randomBytes(6).toString('base64url')}`;
   // Starting a managed run is the explicit act that lets this agent publish proposals for its duration.
-  await client.call('rpc', {
-    op: 'consent.grant',
-    input: { permission: 'publish_proposals', agentId: agent.agentId, ttlMinutes: Math.ceil(o.timeoutMs / 60_000) + 10 },
-  });
+  await host.call('consent.grant', { permission: 'publish_proposals', agentId: agent.agentId, ttlMinutes: Math.ceil(o.timeoutMs / 60_000) + 10 });
 
-  const policy = new SharingPolicy({ scope: status.room.scope, scopePath: status.room.scopePath ?? undefined, codeignore: status.room.codeignore });
-  const live = new NodeWorkspace(o.projectRoot, policy);
-  const runDir = path.join(files.agents(), runId);
+  const policy = new SharingPolicy({ scope: room.scope, scopePath: room.scopePath ?? undefined, codeignore: room.codeignore });
+  const live = new NodeWorkspace(host.projectRoot, policy);
+  const runDir = path.join(host.runsDir, runId);
   const snapDir = path.join(runDir, 'workspace');
   mkdirSync(snapDir, { recursive: true, mode: 0o700 });
   const base = await snapshot(live, snapDir);
@@ -87,15 +92,12 @@ export async function runAgent(client: IpcClient, o: AgentRunOptions): Promise<{
     const key = sha256(JSON.stringify(changes.map((c) => [c.path, c.op, c.content ? sha256(c.content) : null])));
     if (key === lastKey && !final) return;
     lastKey = key;
-    const res = await client.call<{ proposal: ProposalView }>('rpc', {
-      op: 'proposal.upsert',
-      input: {
-        agentId: agent.agentId,
-        runId,
-        title: o.task.slice(0, 120),
-        summary: final ? 'Final result of the run.' : 'Work in progress; this proposal updates while the agent works.',
-        changes,
-      },
+    const res = await host.call('proposal.upsert', {
+      agentId: agent.agentId,
+      runId,
+      title: o.task.slice(0, 120),
+      summary: final ? 'Final result of the run.' : 'Work in progress; this proposal updates while the agent works.',
+      changes,
     });
     proposal = res.proposal;
     o.log(`published proposal ${res.proposal.id} (revision ${res.proposal.revision}, ${changes.length} file(s))`);
@@ -109,6 +111,7 @@ export async function runAgent(client: IpcClient, o: AgentRunOptions): Promise<{
   const abort = new AbortController();
   const onSig = () => abort.abort();
   process.once('SIGINT', onSig);
+  o.signal?.addEventListener('abort', onSig);
   try {
     const res = await runProvider({
       provider: o.provider,
@@ -131,6 +134,7 @@ export async function runAgent(client: IpcClient, o: AgentRunOptions): Promise<{
   } finally {
     clearInterval(tick);
     process.off('SIGINT', onSig);
+    o.signal?.removeEventListener('abort', onSig);
     if (!o.keep) rmSync(runDir, { recursive: true, force: true });
   }
 }

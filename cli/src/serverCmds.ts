@@ -2,7 +2,7 @@ import { chmodSync, existsSync, readFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { ConfigError, Db, envWithFile, loadConfig, pendingMigrations, redact, startServer, validateDatabaseUrl, type ServerConfig } from '@codemeet/server';
 import { CliError, files, writePrivate } from './home.js';
-import { detectProvider } from './providers.js';
+import { detectProvider } from '@codemeet/core';
 import { promptLine, promptSecret } from './util.js';
 
 /** Server configuration comes from the environment, then from the owner's private server.env. */

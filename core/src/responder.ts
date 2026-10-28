@@ -1,10 +1,9 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
-import type { Session } from '@codemeet/core';
 import { RpcError, type MessageView, type Provider } from '@codemeet/shared';
-import { saveSession, type SavedSession } from './home.js';
 import { detectProvider, runProvider } from './providers.js';
+import type { Session } from './session.js';
 
 export type ResponderMode = 'off' | 'review' | 'auto';
 
@@ -17,10 +16,9 @@ export interface InboxItem {
 
 interface Deps {
   session: Session;
-  saved: SavedSession;
+  /** The agent ids this machine's owner has registered, by provider. */
+  agentIds: () => Partial<Record<Provider, string>>;
   log: (line: string) => void;
-  projectRoot: string;
-  onChange: () => void;
 }
 
 const REPLY_TIMEOUT_MS = 120_000;
@@ -81,7 +79,7 @@ export class Responder {
 
   private myAgents(): Map<string, Provider> {
     const out = new Map<string, Provider>();
-    for (const [provider, id] of Object.entries(this.d.saved.agents)) if (id) out.set(id, provider as Provider);
+    for (const [provider, id] of Object.entries(this.d.agentIds())) if (id) out.set(id, provider as Provider);
     return out;
   }
 
@@ -230,4 +228,3 @@ export class Responder {
   }
 }
 
-void saveSession;

@@ -1,6 +1,11 @@
 export * from './session.js';
 export * from './docsync.js';
 export * from './workspace.js';
+export * from './providers.js';
+export * from './agentRun.js';
+export * from './responder.js';
+export * from './projectLock.js';
+export * from './localState.js';
 
 import { SharingPolicy, type RoomInfo } from '@codemeet/shared';
 /** Builds the local copy of the room's sharing policy from the server-provided room info. */

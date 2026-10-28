@@ -477,6 +477,22 @@ export class DocSync extends EventEmitter {
     }
   }
 
+  /**
+   * Writes the shared text to disk if it differs. Used when an editor buffer closes: unsaved
+   * edits were already shared, so the file on disk must catch up rather than revert them.
+   */
+  materialize(path: string): Promise<void> {
+    const p = this.acceptInbound(path);
+    if (!p) return Promise.resolve();
+    return this.enqueue(p, async () => {
+      const doc = this.docs.get(p);
+      if (!doc) return;
+      const text = doc.ydoc.getText('content').toString();
+      const now = await this.workspace.read(p);
+      if (now.kind !== 'text' || now.text !== text) await this.workspace.write(p, text);
+    });
+  }
+
   /** Re-scans the project and reconciles every shareable file (used after missed watcher events). */
   async reconcileAll(): Promise<void> {
     const { files } = await this.workspace.list();
