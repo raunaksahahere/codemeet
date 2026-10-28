@@ -354,6 +354,14 @@ export class Hub {
     }
   }
 
+  /** Test hook: makes a room look idle past its TTL and runs the expiry sweep. */
+  async forceExpire(roomId: string): Promise<void> {
+    const rt = this.rooms.get(roomId);
+    if (rt) rt.expiresAt = 0;
+    await this.db.query("UPDATE rooms SET expires_at = now() - interval '1 minute' WHERE id=$1", [roomId]);
+    await this.sweep();
+  }
+
   async sweep(): Promise<void> {
     await this.flushActivity();
     for (const rt of [...this.rooms.values()]) {
@@ -473,7 +481,7 @@ export class Hub {
   private readonly handlers: Handlers = {
     'room.create': async (call, i) => {
       if (call.sock.data.auth) throw new RpcError('conflict', 'This connection already has a session');
-      if (!this.limiter.allow(`create:${call.sock.data.ip}`, 10, 60_000)) throw new RpcError('rate_limited', 'Too many rooms created; try again shortly');
+      if (!this.limiter.allow(`create:${call.sock.data.ip}`, this.config.maxCreatesPerMinute, 60_000)) throw new RpcError('rate_limited', 'Too many rooms created; try again shortly');
       let scopePath: string | null = null;
       if (i.scope !== 'workspace') {
         scopePath = i.scopePath ? normalizeRelPath(i.scopePath) : null;
@@ -507,7 +515,7 @@ export class Hub {
       if (this.limiter.count(`fail:${ip}:${i.roomId}`) >= 8 || this.limiter.count(`fail:*:${i.roomId}`) >= 40) {
         throw new RpcError('locked', 'Too many failed attempts; try again in a few minutes');
       }
-      if (!this.limiter.allow(`join:${ip}`, 20, 60_000)) throw new RpcError('rate_limited', 'Too many join attempts');
+      if (!this.limiter.allow(`join:${ip}`, this.config.maxJoinsPerMinute, 60_000)) throw new RpcError('rate_limited', 'Too many join attempts');
       const rt = await this.runtime(i.roomId);
       if (!(await verifyPassword(i.password, rt.row.password_hash))) {
         this.limiter.allow(`fail:${ip}:${i.roomId}`, 1_000, 10 * 60_000);
@@ -613,7 +621,11 @@ export class Hub {
       const now = new Date();
       await this.db.query('UPDATE members SET removed_at=$2, token_hash=NULL WHERE id=$1 OR owner_member_id=$1', [me.id, now]);
       for (const m of rt.members.values()) if (m.id === me.id || m.owner_member_id === me.id) m.removed_at = now;
-      await this.db.query('UPDATE grants SET revoked_at=now() WHERE room_id=$1 AND revoked_at IS NULL AND (grantor_member_id=$2 OR agent_id LIKE $3)', [rt.row.id, me.id, `%${me.id}%`]);
+      const ownedAgents = [...rt.members.values()].filter((m) => m.owner_member_id === me.id).map((m) => m.id);
+      await this.db.query(
+        'UPDATE grants SET revoked_at=now() WHERE room_id=$1 AND revoked_at IS NULL AND (grantor_member_id=$2 OR agent_id = ANY($3::text[]) OR peer_agent_id = ANY($3::text[]))',
+        [rt.row.id, me.id, ownedAgents],
+      );
       const sid = call.sock.id;
       call.sock.data.auth = undefined;
       void call.sock.leave(rt.row.id);

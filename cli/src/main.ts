@@ -376,7 +376,7 @@ for (const sub of ['install', 'uninstall'] as const) {
           console.log(`${client}: ${(err.stderr || err.message).trim().split('\n')[0]}`);
         }
       }
-      if (sub === 'install') console.log('\nOnly your existing MCP entries were left untouched. Native file edits by these tools are not attributed; use `codemeet agent run` for attributed work.');
+      if (sub === 'install') console.log('\nYour existing MCP entries were left untouched. Native file edits by these tools are not attributed; use `codemeet agent run` for attributed work.');
     });
 }
 

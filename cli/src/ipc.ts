@@ -11,7 +11,9 @@ import { ensurePrivateDir, files, homeDir, readJson, writePrivate } from './home
 function socketPath(): string {
   const preferred = files.socket();
   if (Buffer.byteLength(preferred) < 96) return preferred;
-  const dir = path.join(tmpdir(), `cm-${process.getuid?.() ?? 'u'}-${createHash('sha256').update(homeDir()).digest('hex').slice(0, 8)}`);
+  const name = `cm-${process.getuid?.() ?? 'u'}-${createHash('sha256').update(homeDir()).digest('hex').slice(0, 8)}`;
+  let dir = path.join(tmpdir(), name);
+  if (Buffer.byteLength(path.join(dir, 'd.sock')) >= 96) dir = path.join('/tmp', name); // TMPDIR itself can be long
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   ensurePrivateDir(dir);
   return path.join(dir, 'd.sock');

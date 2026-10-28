@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { Controller } from './controller';
 import { PrivateNotesPanel } from './services/notes/PrivateNotesPanel';
 
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(context: vscode.ExtensionContext): { e2e?: ReturnType<Controller['e2e']> } {
   const out = vscode.window.createOutputChannel('CodeMeet');
   const controller = new Controller(context, out);
   context.subscriptions.push(
@@ -37,7 +37,9 @@ export function activate(context: vscode.ExtensionContext): void {
   cmd('codemeet.showLog', () => out.show());
 
   // Reconnect to a saved session after VS Code restarts; failures are reported, never fatal.
-  void controller.resumeSaved().catch((e: Error) => out.appendLine(`resume failed: ${e.message}`));
+  if (process.env.CODEMEET_E2E !== '1') void controller.resumeSaved().catch((e: Error) => out.appendLine(`resume failed: ${e.message}`));
+  // The test seam exists only for the automated extension-host test.
+  return process.env.CODEMEET_E2E === '1' ? { e2e: controller.e2e() } : {};
 }
 
 export function deactivate(): void {

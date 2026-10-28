@@ -128,7 +128,7 @@ export async function cmdDoctor(): Promise<void> {
   const nodeMajor = Number(process.versions.node.split('.')[0]);
   rows.push(['Node.js', nodeMajor >= 20, `${process.versions.node} (need >= 20.11)`]);
   rows.push(['CodeMeet home', true, files.session().replace(/session\.json$/, '')]);
-  rows.push(['Database configured', existsSync(files.serverEnv()) || !!process.env.DATABASE_URL, existsSync(files.serverEnv()) ? 'server.env present' : process.env.DATABASE_URL ? 'DATABASE_URL in environment' : 'run `codemeet init` if you will host the server']);
+  rows.push(['Database configured', existsSync(files.serverEnv()) || !!process.env.DATABASE_URL ? true : null, existsSync(files.serverEnv()) ? 'server.env present' : process.env.DATABASE_URL ? 'DATABASE_URL in environment' : 'optional: run `codemeet init` only if you will host the server']);
   if (existsSync(files.serverEnv()) || process.env.DATABASE_URL) {
     try {
       const config = serverConfig();

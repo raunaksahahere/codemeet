@@ -16,7 +16,7 @@
     "Other",
     "Education"
   ],
-  "icon": "codemeet.png",
+  "icon": "icon.png",
   "keywords": [
     "collaboration",
     "real-time",
@@ -109,7 +109,7 @@
         {
           "id": "codemeet-sidebar",
           "title": "CodeMeet",
-          "icon": "codemeet.png"
+          "icon": "$(comment-discussion)"
         }
       ]
     },

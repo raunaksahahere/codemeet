@@ -33,7 +33,7 @@ export async function createTestDatabase(): Promise<{ url: string; drop: () => P
 }
 
 export async function startTestServer(databaseUrl: string, env: Record<string, string> = {}): Promise<RunningServer> {
-  const config = loadConfig({ DATABASE_URL: databaseUrl, CODEMEET_DB_SSL: 'disable', HOST: '127.0.0.1', PORT: '0', ...env });
+  const config = loadConfig({ DATABASE_URL: databaseUrl, CODEMEET_DB_SSL: 'disable', HOST: '127.0.0.1', PORT: '0', CODEMEET_MAX_CREATES_PER_MINUTE: '10000', CODEMEET_MAX_JOINS_PER_MINUTE: '10000', ...env });
   return startServer(config, { migrate: true, log: () => undefined });
 }
 
@@ -122,4 +122,16 @@ export async function closePeer(p: Peer): Promise<void> {
   p.sync.stop();
   p.session.dispose();
   cleanup(p.dir);
+}
+
+import { createServer as createNetServer } from 'node:net';
+export async function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const s = createNetServer();
+    s.once('error', reject);
+    s.listen(0, '127.0.0.1', () => {
+      const port = (s.address() as { port: number }).port;
+      s.close(() => resolve(port));
+    });
+  });
 }

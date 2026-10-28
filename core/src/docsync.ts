@@ -5,6 +5,8 @@ import type { Session } from './session.js';
 import type { Workspace } from './workspace.js';
 
 const REMOTE = Symbol('remote');
+/** Reserved store key for the private-file index; cannot collide with a valid shared path (contains NUL). */
+const PRIVATE_KEY = '\0private';
 
 export interface SyncReport {
   uploaded: string[];
@@ -102,11 +104,26 @@ export class DocSync extends EventEmitter {
     this.attachListeners();
     if (!this.store) return 0;
     const saved = await this.store.loadAll();
-    for (const [path, state] of saved) {
-      if (!this.acceptInbound(path)) continue;
-      this.adoptState(path, state);
+    const priv = saved.get(PRIVATE_KEY);
+    if (priv) {
+      try {
+        for (const p of JSON.parse(Buffer.from(priv).toString('utf8')) as string[]) this.privateLocal.add(p);
+      } catch {
+        /* unreadable index: files stay private only until they next change; never shared silently */
+      }
     }
-    return saved.size;
+    let n = 0;
+    for (const [path, state] of saved) {
+      if (path === PRIVATE_KEY || !this.acceptInbound(path)) continue;
+      this.adoptState(path, state);
+      n++;
+    }
+    return n;
+  }
+
+  /** Remembers which pre-existing local files were deliberately left unshared, across restarts. */
+  private async persistPrivate(): Promise<void> {
+    await this.store?.save(PRIVATE_KEY, new Uint8Array(Buffer.from(JSON.stringify([...this.privateLocal]), 'utf8'))).catch(() => undefined);
   }
 
   override on<K extends keyof DocSyncEvents>(event: K, listener: (...args: DocSyncEvents[K]) => void): this {
@@ -207,6 +224,7 @@ export class DocSync extends EventEmitter {
     report.localOnly = local.files.filter((f) => !remote.has(f));
     for (const f of report.localOnly) this.privateLocal.add(f);
     if (report.conflicts.length && !opts.acceptBaseline) return report; // caller decides; nothing touched
+    await this.persistPrivate();
 
     this.attachListeners();
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -225,6 +243,7 @@ export class DocSync extends EventEmitter {
   /** Marks a local-only file as shared and uploads it. */
   async share(path: string): Promise<void> {
     this.privateLocal.delete(path);
+    await this.persistPrivate();
     await this.localChanged(path);
   }
 
@@ -474,6 +493,11 @@ export class DocSync extends EventEmitter {
     }
     for (const path of remote) {
       if (!this.docs.has(path) && this.acceptInbound(path) && !this.privateLocal.has(path)) await this.fetchAndMaterialize(path);
+    }
+    // Files created locally while we were offline.
+    const local = await this.workspace.list();
+    for (const f of local.files) {
+      if (!this.docs.has(f) && !remote.has(f) && !this.privateLocal.has(f)) await this.localChanged(f);
     }
   }
 

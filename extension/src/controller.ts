@@ -131,10 +131,17 @@ export class Controller implements vscode.Disposable {
       scopePath = path.relative(root, pick[0].fsPath).split(path.sep).join('/');
       if (!scopePath || scopePath.startsWith('..')) return void vscode.window.showErrorMessage('Pick a folder inside the workspace.');
     }
+    await this.hostWith({ name, password, scope: scope.value, scopePath }).catch(() => undefined);
+  }
+
+  /** Creates a room and starts syncing. Shared by the prompt-driven command and the e2e seam. */
+  async hostWith(o: { name: string; password: string; scope: RoomScope; scopePath?: string; serverUrl?: string }): Promise<void> {
+    if (this.active || this.starting) throw new Error('You are already in a CodeMeet session.');
+    const root = this.root();
     this.starting = true;
     try {
       const cfg = this.cfg();
-      const session = new Session(cfg.serverUrl);
+      const session = new Session(o.serverUrl ?? cfg.serverUrl);
       let codeignore = '';
       try {
         codeignore = Buffer.from(await vscode.workspace.fs.readFile(vscode.Uri.file(path.join(root, '.codeignore')))).toString('utf8').slice(0, 20_000);
@@ -142,13 +149,14 @@ export class Controller implements vscode.Disposable {
         /* no .codeignore */
       }
       const creds = await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: 'Creating CodeMeet room...' }, () =>
-        session.create({ displayName: name, password, scope: scope.value, scopePath, codeignore, projectName: path.basename(root) }),
+        session.create({ displayName: o.name, password: o.password, scope: o.scope, scopePath: o.scopePath, codeignore, projectName: path.basename(root) }),
       );
       await this.begin(session, 'host', creds, 'new');
       void vscode.window.showInformationMessage(`Room ${creds.roomId} created. Share the ID and password with collaborators.`);
     } catch (e) {
       await this.teardown();
       void vscode.window.showErrorMessage(`CodeMeet: ${(e as Error).message}`);
+      throw e;
     } finally {
       this.starting = false;
     }
@@ -163,21 +171,28 @@ export class Controller implements vscode.Disposable {
     if (!password) return;
     const name = await this.askName();
     if (!name) return;
+    await this.joinWith({ roomId, password, name }).catch(() => undefined);
+  }
+
+  async joinWith(o: { roomId: string; password: string; name: string; serverUrl?: string }): Promise<void> {
+    if (this.active || this.starting) throw new Error('You are already in a CodeMeet session.');
+    this.root();
     this.starting = true;
     try {
-      const session = new Session(this.cfg().serverUrl);
+      const session = new Session(o.serverUrl ?? this.cfg().serverUrl);
       const creds = await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification, title: 'Waiting for the host to approve you...', cancellable: true },
         (_p, token) => {
           const abort = new AbortController();
           token.onCancellationRequested(() => abort.abort());
-          return session.join({ roomId, password, displayName: name }, { signal: abort.signal });
+          return session.join({ roomId: o.roomId, password: o.password, displayName: o.name }, { signal: abort.signal });
         },
       );
       await this.begin(session, 'guest', creds, 'new');
     } catch (e) {
       await this.teardown();
       void vscode.window.showErrorMessage(`CodeMeet: ${(e as Error).message}`);
+      throw e;
     } finally {
       this.starting = false;
     }
@@ -589,6 +604,26 @@ export class Controller implements vscode.Disposable {
       await this.sync.localChanged('CODEMEET_NOTES.md');
     }
     await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(file));
+  }
+
+  // ── test seam (exposed only when CODEMEET_E2E=1) ──
+
+  e2e() {
+    return {
+      host: (o: Parameters<Controller['hostWith']>[0]) => this.hostWith(o),
+      join: (o: Parameters<Controller['joinWith']>[0]) => this.joinWith(o),
+      state: (): UiState => this.state,
+      decideJoin: (id: string, accept: boolean) => this.decideJoin(id, accept),
+      decideProposalRaw: async (id: string, approve: boolean) => {
+        await this.session?.call('proposal.decide', { proposalId: id, approve });
+      },
+      closeRoom: async () => {
+        await this.session?.call('room.close', {});
+        await this.teardown();
+      },
+      stop: () => this.teardown(),
+      listenerCounts: () => ({ evt: this.session?.listenerCount('evt') ?? 0, state: this.session?.listenerCount('state') ?? 0, disposables: this.sessionDisposables.length }),
+    };
   }
 
   // ── teardown ──

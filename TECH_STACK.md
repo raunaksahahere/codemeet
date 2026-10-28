@@ -1,73 +1,47 @@
 # CodeMeet — Tech Stack & Technical Decisions
 
-> Reference document covering technology choices, VS Code API surface, and risk register for the CodeMeet project.
+Describes what is **implemented today**. Earlier plans (WebRTC DataChannel, OT patches, bcrypt, archiver) were not shipped
+and are listed under *Deferred*.
 
----
+## Decisions
 
-## Tech Stack Decisions
+| Concern | Choice | Notes |
+|---|---|---|
+| Language / tooling | TypeScript (strict), pnpm workspaces, ESM packages, esbuild bundles, Vitest | Node ≥ 20.11 required; developed and tested on Node 24 (`.nvmrc`). pnpm ≥ 9 (10.18 used). |
+| Transport | **Socket.IO (WebSocket) relay** through a server the team runs | Not peer-to-peer and **not end-to-end encrypted**. TLS comes from your reverse proxy (`https://`). |
+| Protocol | one acknowledged `rpc` event + one `evt` push event, zod-validated | `shared/src/protocol.ts` |
+| Edit sync | **Yjs CRDT**, server-authoritative documents | The server is the only place a file becomes a Y.Doc from text; clients start from server state. |
+| Local change detection | content comparison against the CRDT text | No suppression timers; own writes are no-ops. Fine-grained `fast-diff` edits. |
+| Persistence | **PostgreSQL** via `pg`, SQL migrations embedded in the server | Neon / Supabase / local. Advisory-locked migrations; no in-memory fallback. |
+| Password hashing | salted **scrypt** (`node:crypto`) | No native addon, so the CLI bundles into one file. Raw passwords are never stored. |
+| Session tokens | 256-bit random, SHA-256 stored | Durable member identity; resume by token. |
+| Sharing policy | `ignore` (gitignore syntax) + built-in secret/dir deny list | One implementation used by server and clients. |
+| File watching | `chokidar` (CLI), VS Code events + `FileSystemWatcher` (extension) | Rename detection by content hash in the CLI. |
+| Agents | local `claude` / `codex` CLIs (structured JSON events) | Isolated snapshot per run. |
+| MCP | `@modelcontextprotocol/sdk`, stdio | stdout reserved for protocol; logs on stderr. |
+| Local IPC | Unix socket (0700 dir) / loopback TCP + random token (0600 file) | `cli/src/ipc.ts` |
+| Shared notes | an ordinary synced file (`CODEMEET_NOTES.md`) | Conflict-free because it is a normal Yjs document. |
+| Private notes | `context.globalState` | Never transmitted. |
+| Packaging | CLI: single-file bundle in an npm tarball with a generated manifest. Extension: VSIX from a staged manifest. | `node scripts/package-all.mjs` |
+| CI / release | GitHub Actions (`ci.yml`; manual/tag `release.yml`) | Publishing is never automatic. |
 
-| Concern                | Choice                        | Notes                                                        |
-|------------------------|-------------------------------|--------------------------------------------------------------|
-| Edit sync              | `Patch (OT) → Y.js CRDT`     | OT-lite in Phase 3 for speed; upgrade to Y.js CRDT in Phase 5 |
-| P2P transport          | `WebRTC DataChannel`          | Reliable, encrypted, low-latency peer-to-peer data channel   |
-| Signaling              | `Socket.IO / Express`         | Handles room auth, peer discovery, and WebRTC handshake relay |
-| File ignore            | `npm: ignore (gitignore-compat)` | `.codeignore` uses `.gitignore`-compatible syntax          |
-| Workspace ZIP          | `npm: archiver`               | Used for workspace file transfer and bundling                |
-| Password hash          | `bcrypt, cost=12`             | Passwords never sent in plaintext                            |
-| Notes CRDT             | `Y.js Y.Text`                 | Conflict-free shared notes via Y.js text type                |
-| WebRTC in Node         | `wrtc (native bindings)`      | Native WebRTC bindings for Node.js runtime inside extension  |
-| Private notes storage  | `context.globalState`         | VS Code's local storage; never transmitted over network      |
-| Server deploy          | `Fly.io / Railway`            | Signaling server hosting with health checks and TLS          |
+## VS Code API surface used
 
----
+`onDidChangeTextDocument`, `onDidCloseTextDocument`, `createFileSystemWatcher`, `onDidRenameFiles`,
+`onDidChangeTextEditorSelection`, `WorkspaceEdit` (minimal diff edits), `TextDocumentContentProvider` (proposal diffs),
+`WebviewViewProvider` (nonce CSP, textContent rendering, message whitelist), `SecretStorage` (saved session token).
 
-## API Surface (VS Code Extension Events)
+## Deferred
 
-| Feature              | VS Code API                              | Usage                                          |
-|----------------------|------------------------------------------|-------------------------------------------------|
-| Edit detection       | `onDidChangeTextDocument`                | Capture `ContentChange[]` and convert to patches |
-| Cursor sync          | `onDidChangeTextEditorSelection`         | Track cursor position; throttled to 50ms        |
-| File renames         | `onDidRenameFiles`                       | Detect file renames and propagate to peers      |
-| File deletes         | `onDidDeleteFiles`                       | Detect file deletions and propagate to peers    |
-| Workspace root       | `workspaceFolders[0].uri`                | Resolve workspace root for relative paths       |
-| Apply edits          | `workspace.applyEdit`                    | Apply incoming remote patches as `WorkspaceEdit`|
-| Cursor decoration    | `DecorationRenderOptions`                | Render colored remote cursors with name tags    |
-| Open folder          | `vscode.openFolder`                      | Open shared workspace folder on join            |
-| Notifications        | `window.showInformationMessage`          | Host approval prompts, room events, errors      |
-| Room ID input        | `window.showInputBox`                    | Collect room ID and password from user          |
+WebRTC/P2P, end-to-end encryption, voice/video, SSO, dashboards, multi-instance scaling, multi-root workspaces,
+automatic (`apply_code`) application of agent output, sharing of file context between agents.
 
----
+## Risk register
 
-## Risk Register
-
-### 🔴 High
-
-| Risk | Mitigation |
-|------|------------|
-| **WebRTC NAT traversal failure** | Deploy a `coturn` TURN server as fallback. Configure ICE servers list with both STUN (Google) and your TURN credentials. P2P degrades gracefully to relayed mode. |
-| **`wrtc` native bindings on Windows** | Test on Windows CI from day 1. Consider electron-based WebRTC via VS Code's renderer process as an alternative if Node `wrtc` proves too brittle. |
-
-### 🟡 Medium
-
-| Risk | Mitigation |
-|------|------------|
-| **Edit conflicts causing document corruption** | OT-lite is intentional in Phase 3 (fast to ship). CRDT upgrade in Phase 5 eliminates the class of problem. Keep revision log for rollback during beta. |
-| **Large workspace transfer timeout** | Chunk with ACKs, resume on reconnect, enforce a 50 MB soft limit with a warning. Encourage users to `.codeignore` generated files. |
-
-### 🟢 Low
-
-| Risk | Mitigation |
-|------|------------|
-| **Signaling server SPOF** | Signaling is only needed for connection setup. Once P2P is established, dropping the server doesn't interrupt collaboration. Still add health checks + restart policy. |
-
----
-
-## Quick Reference
-
-```
-extension/          VS Code extension (TypeScript, esbuild)
-server/             Signaling server (Express, Socket.IO)
-shared/             Shared types (events, patches, room state)
-```
-
-**See also:** [ROADMAP.md](./ROADMAP.md) for the phased implementation plan.
+| Risk | State |
+|---|---|
+| Relay operator can read code | Documented; use your own server, TLS, and a database you trust |
+| Provider CLI flags/event formats change | Parsers ignore unknown events; versions recorded; fixtures + a gated live test |
+| Hosted Neon/Supabase specifics | Implemented from official docs; **unverified against real projects** |
+| Windows / macOS | Code avoids POSIX-only assumptions (loopback TCP IPC) but is **unverified** |
+| Race between permission check and TOCTOU file write | Residual: a local attacker with write access inside the project can swap a directory for a symlink between checks |

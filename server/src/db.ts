@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import pg from 'pg';
 import { MIGRATIONS } from './migrations.js';
 import { redact, type ServerConfig } from './config.js';
@@ -10,16 +11,18 @@ export class DbUnavailableError extends Error {
 }
 
 /** Builds the pg SSL option. Certificates are always verified unless the user opts out explicitly. */
-export function sslOption(config: Pick<ServerConfig, 'databaseUrl' | 'dbSsl'>): pg.PoolConfig['ssl'] {
+export function sslOption(config: Pick<ServerConfig, 'databaseUrl' | 'dbSsl' | 'dbSslCaFile'>): pg.PoolConfig['ssl'] {
+  const verified = (): pg.PoolConfig['ssl'] =>
+    config.dbSslCaFile ? { rejectUnauthorized: true, ca: readFileSync(config.dbSslCaFile, 'utf8') } : { rejectUnauthorized: true };
   const u = new URL(config.databaseUrl);
   const mode = u.searchParams.get('sslmode');
   const local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(u.hostname);
   if (config.dbSsl === 'disable') return false;
-  if (config.dbSsl === 'require') return { rejectUnauthorized: true };
+  if (config.dbSsl === 'require') return verified();
   if (mode === 'disable') return false;
-  if (mode === 'require' || mode === 'verify-full' || mode === 'verify-ca' || mode === 'prefer') return { rejectUnauthorized: true };
+  if (mode === 'require' || mode === 'verify-full' || mode === 'verify-ca' || mode === 'prefer') return verified();
   // No explicit mode: hosted databases (Neon, Supabase, ...) need TLS; plain local Postgres does not.
-  return local ? false : { rejectUnauthorized: true };
+  return local ? false : verified();
 }
 
 export class Db {
@@ -36,7 +39,8 @@ export class Db {
       max: 10,
       connectionTimeoutMillis: config.dbConnectTimeoutMs,
       idleTimeoutMillis: 30_000,
-      statement_timeout: 15_000,
+      // Client-side only: poolers such as PgBouncer reject unsupported startup parameters.
+      query_timeout: 15_000,
     });
     // An idle client erroring must not crash the process.
     this.pool.on('error', (err) => console.error('[db] idle client error:', this.redact(err.message)));

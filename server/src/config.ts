@@ -6,12 +6,17 @@ export interface ServerConfig {
   databaseUrl: string;
   /** "auto" follows the URL's sslmode, "require" forces verified TLS, "disable" turns TLS off. */
   dbSsl: 'auto' | 'require' | 'disable';
+  /** Optional PEM file with the provider's root CA (needed for Supabase). Verification stays on. */
+  dbSslCaFile?: string;
   dbConnectTimeoutMs: number;
   roomTtlMinutes: number;
   retentionDays: number;
   /** Comma-separated allowed browser origins; empty means no CORS headers. */
   corsOrigins: string[];
   trustProxy: boolean;
+  /** Per-IP limits for room creation / join attempts per minute. */
+  maxCreatesPerMinute: number;
+  maxJoinsPerMinute: number;
 }
 
 export class ConfigError extends Error {}
@@ -64,11 +69,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     port: int(env, 'PORT', 3001, 0, 65535),
     databaseUrl,
     dbSsl,
+    dbSslCaFile: env.CODEMEET_DB_SSL_CA_FILE?.trim() || undefined,
     dbConnectTimeoutMs: int(env, 'CODEMEET_DB_CONNECT_TIMEOUT_MS', 8000, 500, 60000),
     roomTtlMinutes: int(env, 'CODEMEET_ROOM_TTL_MINUTES', 720, 5, 7 * 24 * 60),
     retentionDays: int(env, 'CODEMEET_RETENTION_DAYS', 7, 1, 365),
     corsOrigins: (env.CODEMEET_CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     trustProxy: env.CODEMEET_TRUST_PROXY === '1',
+    maxCreatesPerMinute: int(env, 'CODEMEET_MAX_CREATES_PER_MINUTE', 10, 1, 100_000),
+    maxJoinsPerMinute: int(env, 'CODEMEET_MAX_JOINS_PER_MINUTE', 20, 1, 100_000),
   };
 }
 
