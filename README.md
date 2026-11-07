@@ -1,88 +1,50 @@
-<div align="center">
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="CodeMeet: your team, your AI agents, one shared project" width="100%">
+</p>
 
-<img src="extension/icon.png" width="96" alt="CodeMeet logo" />
+<p align="center">
+  <a href="https://github.com/raunaksahahere/codemeet/actions/workflows/ci.yml"><img src="https://github.com/raunaksahahere/codemeet/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"></a>
+  <a href="#requirements"><img src="https://img.shields.io/badge/node-%E2%89%A5%2020.11-3ddc97?logo=nodedotjs&logoColor=white" alt="Node.js 20.11 or later"></a>
+  <a href="#install"><img src="https://img.shields.io/badge/VS%20Code-1.85%2B-007acc" alt="VS Code 1.85 or later"></a>
+  <a href="docs/database.md"><img src="https://img.shields.io/badge/database-Neon%20%7C%20Supabase%20%7C%20local-336791" alt="Bring your own database: Neon, Supabase or local PostgreSQL"></a>
+  <a href="docs/agents.md"><img src="https://img.shields.io/badge/agents-Claude%20%7C%20Codex-7c3aed" alt="Claude and Codex agents"></a>
+</p>
 
-# Code**Meet**
+<p align="center">
+  <a href="#quickstart-two-people-ten-minutes"><b>Quickstart</b></a> ·
+  <a href="#why-codemeet"><b>Why CodeMeet</b></a> ·
+  <a href="#how-it-works"><b>How it works</b></a> ·
+  <a href="#your-ai-agents-in-the-room"><b>AI agents</b></a> ·
+  <a href="#trust-model-read-this-once"><b>Trust model</b></a> ·
+  <a href="#documentation"><b>Documentation</b></a>
+</p>
 
-### Pair-program with your team **and your AI agents** — in VS Code or the terminal.
+---
+
+**Pair-program with your team and your AI agents — in VS Code or the terminal.**
 
 Sam, **Sam's Claude**, Ava and **Ava's Codex** in one project: live edits, reviewable AI diffs, one-click approvals —
 on **your own server** with **your own PostgreSQL**.
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-2f8cff?style=flat-square)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%E2%89%A5%2020.11-3ddc97?style=flat-square)](#requirements)
-[![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007acc?style=flat-square)](#-install)
-[![Bring your own DB](https://img.shields.io/badge/database-Neon%20%7C%20Supabase%20%7C%20local-336791?style=flat-square)](docs/database.md)
-[![Agents](https://img.shields.io/badge/agents-Claude%20%7C%20Codex-8a5cf6?style=flat-square)](docs/agents.md)
+<p align="center">
+  <a href="docs/media/codemeet-demo.mp4">
+    <img src="docs/media/codemeet-demo.gif" width="300" alt="CodeMeet demo: Ava and Sam editing the same file live, with named cursors, then debugging together">
+  </a>
+  <br>
+  <sub>▶ <a href="docs/media/codemeet-demo.mp4">Watch the full 27-second demo</a></sub>
+</p>
 
-[**Watch the demo**](docs/media/codemeet-demo.mp4) · [Quickstart](#-quickstart-two-people-ten-minutes) · [Why CodeMeet](#-why-codemeet) · [AI agents](#-your-ai-agents-in-the-room) · [CLI reference](docs/cli.md) · [Trust model](#-trust-model-read-this-once)
+## Why CodeMeet
 
-<br />
-
-<a href="docs/media/codemeet-demo.mp4">
-  <img src="docs/media/codemeet-demo.gif" width="300" alt="CodeMeet demo: Ava and Sam editing the same file live, with named cursors, then debugging together" />
-</a>
-<br />
-<sub>▶ Click for the full 27-second video (MP4)</sub>
-
-</div>
-
-<br />
-
----
-
-## ✨ Why CodeMeet
-
-<table>
-<tr>
-<td width="50%" valign="top">
-
-### 👥 Humans *and* agents, clearly labelled
-Every participant is a first-class identity. Your coworkers see **Sam** and **Sam's Claude** — never an anonymous "AI edit".
-Attribution comes from the server's authenticated binding, so nobody can pose as someone else's agent.
-
-</td>
-<td width="50%" valign="top">
-
-### 🔍 AI proposes, humans decide
-Agents work in an **isolated copy** of your project and publish a **diff proposal**. Only the host or the agent's owner
-can approve it. Approval applies **exactly once**, and **stale proposals are refused** instead of overwriting newer code.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-### 🤝 Agent-to-agent chat is *off* until both owners say yes
-Claude and Codex can talk to each other only with **mutual, scoped, expiring, revocable** consent — enforced on the
-server. Revoking cancels queued messages and kills an in-flight reply.
-
-</td>
-<td valign="top">
-
-### 🗄️ Your server, your database, your AI accounts
-Bring **Neon**, **Supabase** or **local Postgres**. Nothing runs on a CodeMeet cloud. Your Claude/Codex stay logged in on
-*your* machine; the database URL never leaves the server owner's laptop.
-
-</td>
-</tr>
-<tr>
-<td valign="top">
-
-### ⚡ Two front-ends, one protocol
-Use the **VS Code extension**, the **standalone CLI**, or mix them in the same room. Edits made by editors, shell
-commands or AI tools on disk are picked up automatically.
-
-</td>
-<td valign="top">
-
-### 🛡️ Safe by default
-Secrets (`.env*`, keys, credentials, `.git`, `node_modules`…) are **never shared**. Path traversal and symlink escapes are
-blocked, conflicting local files are **backed up, never overwritten**, and deletions go to a recoverable trash.
-
-</td>
-</tr>
-</table>
+| | Feature | What it means |
+|:-:|---|---|
+| 👥 | **Humans *and* agents, clearly labelled** | Every participant is a first-class identity. Your coworkers see **Sam** and **Sam's Claude** — never an anonymous "AI edit". Attribution comes from the server's authenticated binding, so nobody can pose as someone else's agent. |
+| 🔍 | **AI proposes, humans decide** | Agents work in an **isolated copy** of your project and publish a **diff proposal**. Only the host or the agent's owner can approve it. Approval applies **exactly once**, and **stale proposals are refused** instead of overwriting newer code. |
+| 🤝 | **Agent-to-agent chat is *off* until both owners say yes** | Claude and Codex can talk to each other only with **mutual, scoped, expiring, revocable** consent — enforced on the server. Revoking cancels queued messages and kills an in-flight reply. |
+| 🗄️ | **Your server, your database, your AI accounts** | Bring **Neon**, **Supabase** or **local Postgres**. Nothing runs on a CodeMeet cloud. Your Claude/Codex stay logged in on *your* machine; the database URL never leaves the server owner's laptop. |
+| ⚡ | **Two front-ends, one protocol** | Use the **VS Code extension**, the **standalone CLI**, or mix them in the same room. Edits made by editors, shell commands or AI tools on disk are picked up automatically. |
+| 🛡️ | **Safe by default** | Secrets (`.env*`, keys, credentials, `.git`, `node_modules`…) are **never shared**. Path traversal and symlink escapes are blocked, conflicting local files are **backed up, never overwritten**, and deletions go to a recoverable trash. |
 
 ### Compared with a generic "share my screen / live share" flow
 
@@ -96,9 +58,8 @@ blocked, conflicting local files are **backed up, never overwritten**, and delet
 | You own the data (your Postgres, your server) | ❌ | ✅ |
 | Resumes after a dropped connection / restart | ⚠️ | ✅ durable identities + CRDT state |
 
----
 
-## 🧭 How it works
+## How it works
 
 ```mermaid
 flowchart LR
@@ -124,15 +85,16 @@ flowchart LR
 - Local changes are detected by **comparing content**, not by timers, so a file CodeMeet itself just wrote never echoes back.
 - Everything durable (members, documents, proposals, consent, messages, audit trail) lives in **your PostgreSQL**.
 
----
 
-## 📦 Install
+## Install
 
 > [!NOTE]
 > Nothing is published to npm or the VS Code Marketplace yet. Install from source or from the release artifacts —
 > the commands below are exactly what works today.
 
-**Requirements:** Node.js ≥ 20.11 (developed and tested on 24), pnpm ≥ 9, Docker (only for the local-database path),
+### Requirements
+
+Node.js ≥ 20.11 (developed and tested on 24), pnpm ≥ 9, Docker (only for the local-database path),
 VS Code ≥ 1.85 (only for the extension). `claude` and/or `codex` CLIs are **optional** — human collaboration works without them.
 
 ```bash
@@ -146,9 +108,8 @@ code --install-extension release/codemeet-0.1.0.vsix   # optional: VS Code exten
 codemeet doctor                        # checks Node, database config, claude/codex
 ```
 
----
 
-## 🚀 Quickstart: two people, ten minutes
+## Quickstart: two people, ten minutes
 
 ### 1 · Run a server with your own database *(one person on the team)*
 
@@ -202,9 +163,8 @@ codemeet activity --follow # live feed: edits, proposals, approvals
 > If Ava already has files that differ from Sam's, CodeMeet **stops and tells her which ones** — nothing is touched until she runs
 > `codemeet baseline accept`, which first backs up her versions under `.codemeet/backups/`.
 
----
 
-## 🤖 Your AI agents in the room
+## Your AI agents in the room
 
 ### Run **Sam's Claude** and **Ava's Codex** in the same project
 
@@ -237,7 +197,7 @@ In VS Code: **CodeMeet: Run My Agent**, then **Review / Approve** from the sideb
 - Native edits made by an independently launched Claude/Codex session are **not** attributed to the agent — they appear as ordinary human/disk changes. Use `agent run` (or the MCP `codemeet_propose_changes` tool) for attributed work.
 </details>
 
-### 🔐 Let the agents talk — only with explicit consent
+### Let the agents talk — only with explicit consent
 
 Agent-to-agent messaging is **off by default**. Both owners must opt in, for that specific pair, with a time limit:
 
@@ -274,9 +234,8 @@ codemeet mcp uninstall --client all             # remove only CodeMeet's own ent
 Tools: `codemeet_participants`, `codemeet_activity`, `codemeet_proposals`, `codemeet_proposal_get`,
 `codemeet_propose_changes`, `codemeet_message_send`, `codemeet_messages`.
 
----
 
-## 🛡️ Trust model (read this once)
+## Trust model (read this once)
 
 | Question | Honest answer |
 |---|---|
@@ -286,9 +245,8 @@ Tools: `codemeet_participants`, `codemeet_activity`, `codemeet_proposals`, `code
 | What is stored? | Members, document state, proposals, consent grants, approved messages and an audit trail — retained 7 days after a room closes (configurable). **Not** stored: raw passwords (salted scrypt hashes only), private notes, AI credentials, private agent transcripts. |
 | Can a coworker delete my files? | Remote deletes move files to `.codemeet/trash/` — recoverable, never an unlink. Agents can only delete through an approved proposal. |
 
----
 
-## 🧰 Everyday commands
+## Everyday commands
 
 | I want to… | Command |
 |---|---|
@@ -302,9 +260,8 @@ Tools: `codemeet_participants`, `codemeet_activity`, `codemeet_proposals`, `code
 
 Complete reference: **[docs/cli.md](docs/cli.md)** · Walkthrough script for a demo: **[docs/demo.md](docs/demo.md)**
 
----
 
-## ✅ What is verified (and what is not)
+## What is verified (and what is not)
 
 Run on Linux with Node 24, PostgreSQL 16 (Docker) and VS Code 1.143:
 
@@ -316,9 +273,8 @@ Run on Linux with Node 24, PostgreSQL 16 (Docker) and VS Code 1.143:
 Not yet verified: Windows/macOS, hosted Neon/Supabase databases, extension ↔ extension across two VS Code windows (same code path as the verified cases), and independently launched provider sessions.
 See **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)** for the full verified / blocked / deferred list.
 
----
 
-## 🧩 Limitations
+## Limitations
 
 - One workspace folder per session (multi-root is not supported). One session per machine user profile for the CLI.
 - Text files only; whole-project baseline limited to 2,000 files / 25 MB per room.
@@ -326,7 +282,7 @@ See **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)** for the full verified / blo
 - `.codeignore` is read when the room is created.
 - Shared notes are an ordinary synced file (`CODEMEET_NOTES.md`); **private notes** stay local to VS Code.
 
-## 🩺 Troubleshooting
+## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
@@ -338,7 +294,7 @@ See **[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md)** for the full verified / blo
 | `Proposal is stale` | Someone changed the files after the agent started. Re-run the agent; nothing was overwritten. |
 | `claude`/`codex` not found | Install and sign in to that CLI; set `CODEMEET_CLAUDE_BIN` / `CODEMEET_CODEX_BIN` for a custom path. |
 
-## 🧹 Uninstall / reset
+## Uninstall / reset
 
 ```bash
 codemeet mcp uninstall --client all     # if you registered the MCP server
@@ -350,9 +306,23 @@ rm -rf <project>/.codemeet              # backups, trash and sync state for that
 docker compose down -v                  # local Postgres and its data
 ```
 
----
 
-## 🛠️ Development
+## Documentation
+
+| Guide | Contents |
+|---|---|
+| 📖 [CLI reference](docs/cli.md) | Commands and everyday workflows |
+| 🗄️ [Database setup](docs/database.md) | Neon, Supabase and local PostgreSQL |
+| 🤖 [AI agents](docs/agents.md) | Agent setup, proposals and permissions |
+| 🔄 [Protocol](docs/protocol.md) | Collaboration protocol |
+| 🎬 [Demo walkthrough](docs/demo.md) | A guided demo script |
+| ✅ [Release checklist](RELEASE_CHECKLIST.md) | Verified, blocked and deferred checks |
+| 🧭 [Roadmap](ROADMAP.md) · [Tech stack](TECH_STACK.md) · [Changelog](CHANGELOG.md) | Project direction and release history |
+
+## Development
+
+<details>
+<summary><b>Build, test and workspace packages</b></summary>
 
 ```bash
 pnpm install --frozen-lockfile && pnpm build && pnpm typecheck && pnpm lint
@@ -371,6 +341,8 @@ CODEMEET_TEST_DATABASE_URL=… pnpm test:extension-host      # real VS Code exte
 | [`extension/`](extension) | VS Code adapter |
 
 More: [docs/protocol.md](docs/protocol.md) · [ROADMAP.md](ROADMAP.md) · [TECH_STACK.md](TECH_STACK.md) · [CHANGELOG.md](CHANGELOG.md)
+
+</details>
 
 <div align="center">
 
